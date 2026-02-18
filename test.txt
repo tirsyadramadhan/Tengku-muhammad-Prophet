@@ -1,0 +1,249 @@
+Route::middleware(['guest'])->group(function () {
+  Route::get('/', [AuthController::class, 'showLogin'])->name('login'); // Name this 'login' for Laravel redirects
+  Route::get('/login', [AuthController::class, 'showLogin']);
+  Route::post('/login', [AuthController::class, 'login']);
+});
+
+Route::prefix('transactions')->group(function () {
+    // Incoming Purchase Orders Start
+
+    // Index Page
+    Route::get('incoming-purchase-orders', [PoController::class, 'incomingPo'])->name('incomingPo');
+
+    // Create Form Page
+    Route::get('/incoming-po/create', [PoController::class, 'createIncoming'])
+      ->name('incoming-po.create');
+
+    // Store incoming purchase order
+    Route::post('/incoming-po/store', [PoController::class, 'storeIncoming'])
+      ->name('incoming-po.store');
+
+    // Get Details
+    Route::get('/incoming-po/{po_id}', [PoController::class, 'show'])->name('incoming-po.show');
+
+    // Edit incoming purchase order
+    Route::get('/incoming-po/{po_id}/edit', [PoController::class, 'edit'])->name('incoming-po.edit');
+
+    // Delete incoming purchase order 
+    Route::delete('/incoming-po/{po_id}', [PoController::class, 'destroy'])->name('incoming-po.destroy');
+
+    // Incoming Purchase Orders End
+
+    Route::resource('purchase-orders', PoController::class)->names('po');
+    Route::resource('invoices', InvoiceController::class)->names('invoice');
+    Route::resource('deliveries', DeliveryController::class)->names('delivery');
+});
+
+public function show($po_id)
+{
+    // Fetch the PO with its customer relationship
+    $po = Po::with('customer')->findOrFail($po_id);
+
+    return view('transactions.incoming-po-show', compact('po'));
+}
+
+/**
+    * Show the form for editing the specified Purchase Order.
+    */
+public function edit($po_id)
+{
+    $po = Po::findOrFail($po_id);
+    $customers = Customer::all(); // Needed for the dropdown in edit form
+
+    return view('transactions.incoming-po-edit', compact('po', 'customers'));
+}
+
+Invoice table:
+CREATE TABLE IF NOT EXISTS `tbl_invoice` (
+  `invoice_id` bigint NOT NULL AUTO_INCREMENT,
+  `delivery_id` bigint NOT NULL,
+  `nomor_invoice` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `tgl_invoice` datetime DEFAULT NULL,
+  `due_date` datetime DEFAULT NULL,
+  `status_invoice` tinyint DEFAULT '0' COMMENT '0: Unpaid, 1: Paid, 2: Cancelled',
+  `input_by` bigint DEFAULT NULL,
+  `input_date` datetime DEFAULT CURRENT_TIMESTAMP,
+  `edit_by` bigint DEFAULT NULL,
+  `edit_date` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`invoice_id`),
+  UNIQUE KEY `uk_nomor_invoice` (`nomor_invoice`),
+  KEY `idx_invoice_delivery` (`delivery_id`),
+  CONSTRAINT `fk_invoice_delivery` FOREIGN KEY (`delivery_id`) REFERENCES `tbl_delivery` (`delivery_id`) ON DELETE RESTRICT
+)
+
+Model:
+class Invoice extends Model
+{
+  protected $table = 'tbl_invoice';
+  protected $primaryKey = 'invoice_id';
+
+  // Disable Laravel default timestamps as the table uses custom names
+  public $timestamps = false;
+
+  protected $fillable = [
+      'delivery_id',      // Foreign key to tbl_delivery
+      'nomor_invoice',    // Unique invoice number
+      'tgl_invoice',
+      'due_date',
+      'status_invoice',   // 0: Unpaid, 1: Paid, 2: Cancelled
+      'input_by',
+      'input_date',
+      'edit_by',
+      'edit_date',
+  ];
+
+  /**
+    * Boot the model to handle metadata and status synchronization.
+    */
+  protected static function boot()
+  {
+      parent::boot();
+
+      static::creating(function ($model) {
+          $model->input_by = $model->input_by ?? Auth::id() ?? 1;
+          $model->input_date = now();
+      });
+
+      static::updating(function ($model) {
+          $model->edit_by = Auth::id() ?? 1;
+          $model->edit_date = now();
+      });
+
+      // Trigger updates in parent records after an invoice is saved
+      static::saved(function ($model) {
+          // Force-load the delivery relationship (in case it wasn't loaded)
+          $model->load('delivery.po');
+
+          if ($model->delivery) {
+              // Update delivery invoiced_status
+              $model->delivery->update(['invoiced_status' => 1]);
+
+              // Trigger PO status sync
+              if ($model->delivery->po) {
+                  $model->delivery->po->syncStatus();
+              }
+          }
+      });
+  }
+
+  // --- RELATIONSHIPS ---
+
+  /**
+    * Each invoice belongs to exactly one delivery
+    */
+  public function delivery()
+  {
+      return $this->belongsTo(Delivery::class, 'delivery_id', 'delivery_id');
+  }
+
+  /**
+    * Access the PO through the Delivery relationship
+    */
+  public function po()
+  {
+      return $this->hasOneThrough(
+          Po::class,
+          Delivery::class,
+          'delivery_id', // Foreign key on tbl_delivery
+          'po_id',       // Foreign key on tbl_po
+          'delivery_id', // Local key on tbl_invoice
+          'po_id'        // Local key on tbl_delivery
+      );
+  }
+
+  /**
+    * Each invoice can have one payment record
+    */
+  public function payment()
+  {
+      return $this->hasOne(Payment::class, 'invoice_id', 'invoice_id');
+  }
+
+  public function creator()
+  {
+      return $this->belongsTo(User::class, 'input_by', 'user_id');
+  }
+
+  public function editor()
+  {
+      return $this->belongsTo(User::class, 'edit_by', 'user_id');
+  }
+}
+
+Controller:
+public function show($invoice_id)
+{
+    // We load 'payments' for your math, and the nested delivery/po/customer 
+    // for the header details in the UI I designed.
+    $invoice = Invoice::with([
+        'delivery.po.customer',
+        'payments'
+    ])->findOrFail($invoice_id);
+
+    return view('invoice-show', compact('invoice'));
+}
+
+php lines:
+
+@php $customer = $invoice->delivery->po->customer; @endphp
+
+@php
+  $itemPrice = $invoice->delivery->po->harga;
+  $qtyDelivered = $invoice->delivery->qty_delivered;
+  $lineTotal = $itemPrice * $qtyDelivered;
+@endphp
+
+@php
+  // 1. Calculate the billing amount based on what was actually delivered
+  $itemPrice = $invoice->delivery->po->harga;
+  $qtyDelivered = $invoice->delivery->qty_delivered;
+  $lineTotal = $itemPrice * $qtyDelivered;
+
+  // 2. Sum the payments (Now works because we eager-loaded 'payments')
+  $totalPaid = $invoice->payments->sum('amount');
+
+  // 3. Calculate remaining balance
+  $remaining = $lineTotal - $totalPaid;
+@endphp
+
+@php
+  $poQty = $invoice->delivery->po->qty;
+  $delQty = $invoice->delivery->qty_delivered;
+  $percent = $poQty > 0 ? ($delQty / $poQty) * 100 : 0;
+@endphp
+
+@if($invoice->payment->isEmpty())
+  <div class="alert alert-outline-warning mb-0" role="alert">
+    <span class="fw-medium">No payments recorded.</span> This invoice is fully outstanding.
+  </div>
+@else
+
+public function edit($delivery_id)
+{
+    $delivery = Delivery::findOrFail($delivery_id);
+
+    // Fetch ONLY the current PO (no status filtering – we want it even if status is excluded)
+    $purchaseOrders = Po::select('tbl_po.*')
+        ->selectSub(function ($query) {
+            $query->from('tbl_delivery')
+                ->whereColumn('po_id', 'tbl_po.po_id')
+                ->selectRaw('COALESCE(SUM(qty_delivered), 0)');
+        }, 'total_delivered')
+        ->where('po_id', $delivery->po_id)  // ← only the current PO
+        ->get();
+
+    foreach ($purchaseOrders as $po) {
+        // Overall remaining quantity (after ALL deliveries)
+        $po->overall_remaining = $po->qty - $po->total_delivered;
+
+        // Quantity that can still be allocated to THIS delivery
+        // (add back the current delivery's qty because we're editing it)
+        $po->available_for_edit = $po->overall_remaining + $delivery->qty_delivered;
+
+        // Display text uses overall_remaining
+        $po->display_text = "{$po->no_po} (Available: " . number_format($po->overall_remaining) . " / " . number_format($po->qty) . ")";
+    }
+
+    // No need for $currentPo – $purchaseOrders already contains it
+    return view('delivery-edit', compact('delivery', 'purchaseOrders'));
+}

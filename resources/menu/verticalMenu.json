@@ -1,0 +1,73 @@
+{
+  "menu": [
+    {
+      "url": "/dashboard",
+      "name": "Dashboards",
+      "icon": "menu-icon icon-base ri ri-home-smile-line",
+      "slug": "dashboard",
+      "submenu": [
+        {
+          "url": "/dashboard",
+          "name": "Analytics",
+          "slug": "dashboard-analytics"
+        }
+      ]
+    },
+    {
+      "menuHeader": "Transaction Pages"
+    },
+    {
+      "name": "Purchase Order Management",
+      "icon": "menu-icon icon-base ri ri-shopping-cart-line",
+      "slug": "pages-account-settings",
+      "submenu": [
+        {
+          "url": "transactions/incoming-purchase-orders",
+          "name": "Incoming POs",
+          "slug": "pages-account-settings-account"
+        },
+        {
+          "url": "transactions/purchase-orders",
+          "name": "Purchase Orders",
+          "slug": "pages-account-settings-notifications"
+        }
+      ]
+    },
+    {
+      "url": "transactions/deliveries",
+      "icon": "menu-icon icon-base ri ri-truck-line",
+      "name": "Deliveries",
+      "slug": "form-validation"
+    },
+    {
+      "url": "transactions/invoices",
+      "icon": "menu-icon icon-base ri-file-list-3-line",
+      "name": "Invoices",
+      "slug": "form-validation"
+    },
+    {
+      "menuHeader": "Financials"
+    },
+    {
+      "url": "financials/payments",
+      "icon": "menu-icon icon-base ri ri-money-dollar-circle-line",
+      "name": "Payments",
+      "slug": "form-validation"
+    },
+    {
+      "url": "financials/investments",
+      "icon": "menu-icon icon-base ri-coins-line",
+      "name": "Investment Recap",
+      "slug": "form-validation"
+    },
+    {
+      "menuHeader": "Customers"
+    },
+    {
+      "url": "master/customers",
+      "icon": "menu-icon icon-base ri-user-star-line",
+      "name": "Customers",
+      "slug": "form-validation"
+    }
+  ]
+}
