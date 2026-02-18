@@ -247,3 +247,16 @@ public function edit($delivery_id)
     // No need for $currentPo – $purchaseOrders already contains it
     return view('delivery-edit', compact('delivery', 'purchaseOrders'));
 }
+
+$query = Po::with('customer')
+  ->select('tbl_po.*')
+  ->where('status', 0);
+
+Route::get('/api/dashboard-stats', function () {
+  return response()->json([
+    'incoming' => \App\Models\Po::count(), // Replace with your actual queries
+    'price'    => \App\Models\Po::sum('total'),
+    'capital'  => \App\Models\Po::sum('modal_awal'),
+    'margin'   => \App\Models\Po::sum('margin'),
+  ]);
+})->name('api.dashboard.stats');

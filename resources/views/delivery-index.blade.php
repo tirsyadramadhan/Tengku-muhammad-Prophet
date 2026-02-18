@@ -268,7 +268,7 @@
             ],
             pageLength: 10,
             language: {
-                url: "//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json", // Indonesian language pack
+                url: "/vendor/datatables/id.json", // Indonesian language pack
                 processing: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Memuat...</span></div>',
                 search: '',
                 searchPlaceholder: 'Cari (Ref, Barang, Tanggal)...',

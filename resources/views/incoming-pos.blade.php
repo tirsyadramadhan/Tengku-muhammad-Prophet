@@ -131,6 +131,23 @@
         border-radius: 0.5rem;
         overflow: hidden;
     }
+
+    .stat-card h4 {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        /* Prevents the number from breaking into two lines */
+        font-size: 1.15rem;
+        /* Shrink slightly from default H4 (usually 1.5rem) */
+        letter-spacing: -0.5px;
+        /* Tighten characters slightly to save width */
+    }
+
+    /* Optional: Even smaller font on mobile devices */
+    @media (max-width: 576px) {
+        .stat-card h4 {
+            font-size: 1rem;
+        }
+    }
 </style>
 
 <div class="container-xxl flex-grow-1 container-p-y">
@@ -141,13 +158,13 @@
     </div>
 
     <div class="row mb-4 g-4">
-        <div class="col-sm-6 col-xl-3">
-            <div class="card stat-card shadow-sm" style="border-left-color: #696cff;">
+        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
+            <div class="card stat-card shadow-sm" style="border-left-color: #696cff">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <h4 class="mb-0 fw-bold">{{ $totalIncoming }}</h4>
-                            <small class="text-muted">Total PO Masuk</small> {{-- Translated --}}
+                            <h4 class="mb-0 fw-bold" id="card-incoming">0</h4>
+                            <small class="text-muted">Total PO Masuk</small>
                         </div>
                         <div class="avatar bg-label-primary p-2 rounded">
                             <i class="ri-shopping-basket-line fs-3"></i>
@@ -156,12 +173,12 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card stat-card shadow-sm" style="border-left-color: #71dd37;">
+        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
+            <div class="card stat-card shadow-sm" style="border-left-color: #71dd37">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <h4 class="mb-0 fw-bold">Rp {{ number_format($totalPrice) }}</h4>
+                            <h4 class="mb-0 fw-bold" id="card-price">0</h4>
                             <small class="text-muted">Total Harga</small>
                         </div>
                         <div class="avatar bg-label-success p-2 rounded">
@@ -171,12 +188,12 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card stat-card shadow-sm" style="border-left-color: #03c3ec;">
+        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
+            <div class="card stat-card shadow-sm" style="border-left-color: #03c3ec">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <h4 class="mb-0 fw-bold">Rp {{ number_format($totalCapital) }}</h4>
+                            <h4 class="mb-0 fw-bold" id="card-capital">0</h4>
                             <small class="text-muted">Total Modal</small>
                         </div>
                         <div class="avatar bg-label-info p-2 rounded">
@@ -186,16 +203,16 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card stat-card shadow-sm" style="border-left-color: #71dd37;">
+        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
+            <div class="card stat-card shadow-sm" style="border-left-color: #71dd37">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <h4 class="mb-0 fw-bold text-success">Rp {{ number_format($totalMargin) }}</h4>
+                            <h4 class="mb-0 fw-bold text-success" id="card-margin">0</h4>
                             <small class="text-muted">Total Margin</small>
                         </div>
                         <div class="avatar bg-label-success p-2 rounded">
-                            <i class="ri-money-dollar-circle-line fs-3"></i>
+                            <i class="ri-money-dollar-box-line fs-3"></i>
                         </div>
                     </div>
                 </div>
@@ -237,11 +254,50 @@
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/countup.js/2.0.7/countUp.umd.min.js"></script>
 @endsection
 
 @section('page-script')
 <script>
     jQuery(document).ready(function($) {
+        function updateCardStats() {
+            $.ajax({
+                url: '/api/dashboard-stats', // The route we created in Step 2
+                method: 'GET',
+                success: function(data) {
+                    const moneyOptions = {
+                        startVal: 0, // <--- THIS FORCES IT TO START FROM ZERO
+                        prefix: 'Rp ',
+                        separator: '.',
+                        decimal: ',',
+                        duration: 3
+                    };
+
+                    const numberOptions = {
+                        startVal: 0, // <--- THIS FORCES IT TO START FROM ZERO
+                        duration: 3
+                    }; // Animate each card
+                    // Initialize and start the animations
+                    const countIncoming = new CountUp('card-incoming', data.incoming, numberOptions);
+                    const countPrice = new CountUp('card-price', data.price, moneyOptions);
+                    const countCapital = new CountUp('card-capital', data.capital, moneyOptions);
+                    const countMargin = new CountUp('card-margin', data.margin, moneyOptions);
+
+                    // Handle potential errors (like if ID is missing) and start
+                    if (!countIncoming.error) countIncoming.start();
+                    if (!countPrice.error) countPrice.start();
+                    if (!countCapital.error) countCapital.start();
+                    if (!countMargin.error) countMargin.start();
+                },
+                error: function(err) {
+                    console.error('Failed to fetch stats', err);
+                }
+            });
+        }
+
+        // 1. Trigger animation on initial page load
+        updateCardStats();
+
         $(document).on('click', '.btn-delete-ajax', function() {
             let deleteUrl = $(this).data('url');
             let poNo = $(this).data('po');
@@ -279,6 +335,7 @@
                 if (result.isConfirmed) {
                     Swal.fire('Terhapus!', result.value.message, 'success');
                     $('#table-incoming').DataTable().ajax.reload(null, false);
+                    updateCardStats();
                 }
             });
         });
@@ -342,7 +399,7 @@
                 displayLength: 10,
                 dom: '<"card-body d-flex flex-column flex-md-row justify-content-between align-items-center pt-0"<"me-md-2"l><"dt-action-buttons text-end"f>>t<"card-body d-flex flex-column flex-md-row justify-content-between"<"me-md-2"i><"p-0"p>>',
                 language: {
-                    url: "//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json", // Indonesian language pack
+                    url: "/vendor/datatables/id.json", // Indonesian language pack
                     processing: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Memuat...</span></div>',
                     search: "",
                     searchPlaceholder: "Cari...", // Indonesian placeholder

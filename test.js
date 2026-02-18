@@ -1,142 +1,154 @@
-document.addEventListener('DOMContentLoaded', function () {
-    const numericInputs = document.querySelectorAll('.numeric-only');
-    const form = document.getElementById('incomingPoForm');
+jQuery(document).ready(function ($) {
+  function updateCardStats() {
+    $.ajax({
+      url: '/api/dashboard-stats', // The route we created in Step 2
+      method: 'GET',
+      success: function (data) {
+        // Options: useEasing, useGrouping, separator, decimal, etc.
+        const moneyOptions = {
+          prefix: 'Rp ',
+          separator: '.',
+          decimal: ',',
+          duration: 2
+        };
 
-    // Helper to validate a single field (no leading zero)
-    function validateNoLeadingZero(input) {
-        const value = input.value;
-        const errorDivId = input.id + '-error'; // assumes error div id = inputId + '-error'
-        const errorDiv = document.getElementById(errorDivId);
+        const numberOptions = {
+          duration: 2
+        };
 
-        // Clear previous custom validity
-        input.setCustomValidity('');
-
-        if (value.length > 1 && value[0] === '0') {
-            // Leading zero error
-            input.classList.add('is-invalid');
-            if (errorDiv) {
-                errorDiv.textContent = 'Value cannot start with zero.';
-            }
-            input.setCustomValidity('Value cannot start with zero.');
-            return false;
-        } else {
-            // Check other requirements (e.g., required, min) – let browser handle
-            input.classList.remove('is-invalid');
-            if (errorDiv) {
-                // Restore original message (or dynamic based on other checks)
-                // For simplicity, we'll keep the generic message; you could enhance
-                if (input.id === 'qty') errorDiv.textContent = 'Quantity must be at least 1.';
-                else if (input.id === 'harga_display') errorDiv.textContent = 'Price is required.';
-                else if (input.id === 'margin_percentage') errorDiv.textContent = 'Margin percentage is required.';
-                else if (input.id === 'tambahan_margin_display') errorDiv.textContent = 'Invalid amount.';
-            }
-            input.setCustomValidity('');
-            return true;
-        }
-    }
-
-    numericInputs.forEach(input => {
-        // Block non‑digit keys (same as before)
-        input.addEventListener('keydown', function (e) {
-            const key = e.key;
-            const isCtrlKey = e.ctrlKey || e.metaKey;
-            const allowedSpecialKeys = [
-                'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
-                'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-                'Home', 'End'
-            ];
-
-            if (allowedSpecialKeys.includes(key) || isCtrlKey) return;
-
-            if (!/^[0-9]$/.test(key)) {
-                e.preventDefault();
-            }
-        });
-
-        // Clean input and validate on any change
-        input.addEventListener('input', function () {
-            // Remove non‑digits
-            let sanitized = this.value.replace(/\D/g, '');
-
-            // Apply maxlength
-            const maxLen = this.getAttribute('maxlength');
-            if (maxLen && sanitized.length > parseInt(maxLen, 10)) {
-                sanitized = sanitized.slice(0, maxLen);
-            }
-
-            // Update field if changed
-            if (this.value !== sanitized) {
-                this.value = sanitized;
-            }
-
-            // Validate leading zero
-            validateNoLeadingZero(this);
-
-            // Sync hidden fields
-            if (this.id === 'harga_display') {
-                document.getElementById('harga').value = sanitized;
-            }
-            if (this.id === 'tambahan_margin_display') {
-                document.getElementById('tambahan_margin').value = sanitized;
-            }
-        });
-
-        // Validate on blur as well (in case user tabs out)
-        input.addEventListener('blur', function () {
-            validateNoLeadingZero(this);
-        });
-
-        // Sanitize paste
-        input.addEventListener('paste', function (e) {
-            e.preventDefault();
-            const paste = (e.clipboardData || window.clipboardData).getData('text');
-            let sanitized = paste.replace(/\D/g, '');
-
-            const maxLen = this.getAttribute('maxlength');
-            if (maxLen) {
-                sanitized = sanitized.slice(0, parseInt(maxLen, 10));
-            }
-
-            const start = this.selectionStart;
-            const end = this.selectionEnd;
-            const currentValue = this.value;
-            const newValue = currentValue.substring(0, start) + sanitized + currentValue.substring(end);
-            this.value = newValue;
-
-            this.dispatchEvent(new Event('input', { bubbles: true }));
-        });
+        // Animate each card
+        // Note: data.incoming matches the keys in the JSON response
+        new countUp.CountUp('card-incoming', data.incoming, numberOptions).start();
+        new countUp.CountUp('card-price', data.price, moneyOptions).start();
+        new countUp.CountUp('card-capital', data.capital, moneyOptions).start();
+        new countUp.CountUp('card-margin', data.margin, moneyOptions).start();
+      },
+      error: function (err) {
+        console.error('Failed to fetch stats', err);
+      }
     });
+  }
 
-    // Final validation on form submit
-    form.addEventListener('submit', function (e) {
-        let isValid = true;
+  jQuery(document).ready(function ($) {
+    // 1. Trigger animation on initial page load
+    updateCardStats();
 
-        numericInputs.forEach(input => {
-            // Update hidden fields one last time
-            if (input.id === 'harga_display') {
-                document.getElementById('harga').value = input.value.replace(/\D/g, '');
-            }
-            if (input.id === 'tambahan_margin_display') {
-                document.getElementById('tambahan_margin').value = input.value.replace(/\D/g, '');
-            }
-
-            // Check leading zero
-            if (!validateNoLeadingZero(input)) {
-                isValid = false;
-            }
-
-            // Also run browser validation (required, min, etc.)
-            if (!input.checkValidity()) {
-                isValid = false;
-                // Let browser show its own message; we can also mark field
-                input.classList.add('is-invalid');
-            }
-        });
-
-        if (!isValid) {
-            e.preventDefault();
-            e.stopPropagation();
-            form.classList.add('was-validated');
-        }
+    // 2. Trigger animation whenever DataTable reloads (Search, Pagination, or .ajax.reload())
+    // Your table ID is '#table-incoming' based on the file provided
+    $('#table-incoming').on('xhr.dt', function (e, settings, json, xhr) {
+      updateCardStats();
     });
+  });
+  $(document).on('click', '.btn-delete-ajax', function () {
+    let deleteUrl = $(this).data('url');
+    let poNo = $(this).data('po');
+
+    Swal.fire({
+      title: 'Hapus Data?',
+      text: `Apakah Anda yakin ingin menghapus PO #${poNo}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Ya, Hapus!',
+      cancelButtonText: 'Batal',
+      showLoaderOnConfirm: true, // Shows a loading spinner on the button
+      preConfirm: () => {
+        return $.ajax({
+          url: deleteUrl,
+          type: 'POST',
+          data: {
+            _method: 'DELETE',
+            _token: '{{ csrf_token() }}'
+          },
+          success: function (response) {
+            return response;
+          },
+          error: function (xhr) {
+            // Pull the error message from the controller's JSON response
+            let msg = xhr.responseJSON ? xhr.responseJSON.message : 'Terjadi kesalahan.';
+            Swal.showValidationMessage(`Request failed: ${msg}`);
+          }
+        });
+      },
+      allowOutsideClick: () => !Swal.isLoading()
+    }).then(result => {
+      if (result.isConfirmed) {
+        Swal.fire('Terhapus!', result.value.message, 'success');
+        $('#table-incoming').DataTable().ajax.reload(null, false);
+      }
+    });
+  });
+  var dt_table = $('#table-incoming');
+
+  if (dt_table.length) {
+    dt_table.DataTable({
+      processing: true,
+      serverSide: true,
+      ajax: "{{ route('incomingPo') }}",
+      columns: [
+        {
+          data: 'DT_RowIndex',
+          name: 'DT_RowIndex',
+          orderable: false,
+          searchable: false,
+          className: 'text-center fw-medium text-muted'
+        },
+        {
+          data: 'no_po',
+          name: 'no_po'
+        },
+        {
+          data: 'tgl_po',
+          name: 'tgl_po'
+        },
+        {
+          data: 'product_customer',
+          name: 'nama_barang'
+        },
+        {
+          data: 'qty',
+          name: 'qty',
+          className: 'text-center'
+        },
+        {
+          data: 'total',
+          name: 'total',
+          className: 'text-end fw-bold bg-financial'
+        },
+        {
+          data: 'modal_awal',
+          name: 'modal_awal',
+          className: 'text-end text-muted'
+        },
+        {
+          data: 'margin',
+          name: 'margin',
+          className: 'text-end fw-bold text-success bg-profit'
+        },
+        {
+          data: 'action',
+          name: 'action',
+          orderable: false,
+          searchable: false,
+          className: 'text-center'
+        }
+      ],
+      order: [[2, 'desc']],
+      displayLength: 10,
+      dom: '<"card-body d-flex flex-column flex-md-row justify-content-between align-items-center pt-0"<"me-md-2"l><"dt-action-buttons text-end"f>>t<"card-body d-flex flex-column flex-md-row justify-content-between"<"me-md-2"i><"p-0"p>>',
+      language: {
+        url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json', // Indonesian language pack
+        processing:
+          '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Memuat...</span></div>',
+        search: '',
+        searchPlaceholder: 'Cari...', // Indonesian placeholder
+        sLengthMenu: '_MENU_',
+        paginate: {
+          next: '<i class="ri-arrow-right-s-line"></i>',
+          previous: '<i class="ri-arrow-left-s-line"></i>'
+        }
+      }
+    });
+  }
 });

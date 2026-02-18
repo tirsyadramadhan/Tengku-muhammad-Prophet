@@ -117,9 +117,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\InvestasiController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\MarginController;
-use App\Http\Controllers\MarginDiterimaController;
+use App\Models\Po;
 
 Route::middleware(['guest'])->group(function () {
   Route::get('/', [AuthController::class, 'showLogin'])->name('login'); // Name this 'login' for Laravel redirects
@@ -215,4 +213,42 @@ Route::middleware(['auth'])->group(function () {
   // Automations
   Route::post('/delivery/{id}/auto-deliver', [DeliveryController::class, 'autoDeliver'])->name('delivery.autoDeliver');
   // Automations
+
+  // Card Datas
+  // Incoming POs
+  Route::get('/api/dashboard-stats', function () {
+    return response()->json([
+      // Count only POs where status is 0
+      'incoming' => Po::where('status', 0)->count(),
+
+      // Sum 'total' column for status 0
+      'price'    => Po::where('status', 0)->sum('total'),
+
+      // Sum 'modal_awal' column for status 0
+      'capital'  => Po::where('status', 0)->sum('modal_awal'),
+
+      // Sum 'margin' column for status 0
+      'margin'   => Po::where('status', 0)->sum('margin'),
+    ]);
+  })->name('api.dashboard.stats');
+  // Incoming POs
+  // Purchase Orders
+  Route::get('/api/po-stats', function () {
+    return response()->json([
+      // Count only POs where status is 0
+      'incoming' => Po::where('status', '!=', 0)->count(),
+
+      // Sum 'total' column for status 0
+      'price'    => Po::where('status', '!=', 0)->sum('total'),
+
+      // Sum 'modal_awal' column for status 0
+      'capital'  => Po::where('status', '!=', 0)->sum('modal_awal'),
+
+      // Sum 'margin' column for status 0
+      'margin'   => Po::where('status', '!=', 0)->sum('margin'),
+    ]);
+  })->name('api.po.stats');
+  // Purchase Orders
+  // Card Datas
+
 });
