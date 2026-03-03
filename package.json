@@ -38,7 +38,8 @@
     "sass": "1.76.0",
     "sass-loader": "~14.0.0",
     "source-map-resolve": "0.6.0",
-    "vite": "^6.3.6"
+    "vite": "^6.3.6",
+    "vite-plugin-ngrok": "^2.0.1"
   },
   "overrides": {
     "braces": "^3.0.3",
@@ -101,6 +102,7 @@
     "datatables.net-responsive-bs5": "^3.0.8",
     "highlight.js": "~11.10.0",
     "jquery": "~3.7.1",
+    "jquery-ui": "^1.14.2",
     "jszip": "^3.10.1",
     "laravel-vite-plugin": "1.0.6",
     "masonry-layout": "~4.2.2",

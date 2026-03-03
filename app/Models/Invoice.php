@@ -57,6 +57,19 @@ class Invoice extends Model
                 }
             }
         });
+
+        // In Invoice boot() — add this after the saved() hook
+        static::deleted(function ($model) {
+            $model->load('delivery.po');
+
+            if ($model->delivery) {
+                $model->delivery->syncInvoicedStatus();
+
+                if ($model->delivery->po) {
+                    $model->delivery->po->syncStatus();
+                }
+            }
+        });
     }
 
     // --- RELATIONSHIPS ---
@@ -100,5 +113,37 @@ class Invoice extends Model
     public function editor()
     {
         return $this->belongsTo(User::class, 'edit_by', 'user_id');
+    }
+
+    /**
+     * Sync status_invoice for a single invoice.
+     * 1 = has payment, 0 = no payment
+     */
+    public function syncInvoiceStatus(): void
+    {
+        $hasPayment = $this->payment()->exists() ? 1 : 0;
+
+        if ($this->status_invoice !== $hasPayment) {
+            self::where('invoice_id', $this->invoice_id)
+                ->update(['status_invoice' => $hasPayment]);
+        }
+    }
+
+    /**
+     * Sync status_invoice for ALL invoices. Chunked for performance.
+     */
+    public static function syncAllInvoiceStatus(): void
+    {
+        self::with('payment')
+            ->chunkById(200, function ($invoices) {
+                foreach ($invoices as $invoice) {
+                    $hasPayment = $invoice->payment ? 1 : 0;
+
+                    if ($invoice->status_invoice !== $hasPayment) {
+                        self::where('invoice_id', $invoice->invoice_id)
+                            ->update(['status_invoice' => $hasPayment]);
+                    }
+                }
+            });
     }
 }

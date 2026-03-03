@@ -13,10 +13,10 @@ class Investasi extends Model
     protected $fillable = [
         'modal_setor_awal',
         'modal_po_baru',
-        'total_margin',
+        'margin',
         'pencairan_modal',
-        'penarikan',
-        'dana_ditransfer',
+        'margin_cair',
+        'pengembalian_dana',
         'dana_tersedia',
         'tgl_investasi'
     ];

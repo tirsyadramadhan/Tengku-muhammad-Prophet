@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Payment;
+use App\Models\Invoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables; // Ensure you have yajra/laravel-datatables installed
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Route;
+use App\Models\Customer;  // ADD THIS import at top of controller
 
 class PaymentController extends Controller
 {
@@ -68,7 +71,6 @@ class PaymentController extends Controller
                 // Column: Tanggal & Metode
                 ->addColumn('tanggal_metode', function ($row) {
                     $date = \Carbon\Carbon::parse($row->payment_date)->format('d M Y');
-                    $time = \Carbon\Carbon::parse($row->input_date)->format('H:i');
 
                     $methodClass = match (strtolower($row->metode_bayar)) {
                         'transfer' => 'bg-label-info',
@@ -80,12 +82,31 @@ class PaymentController extends Controller
                     return '<div class="d-flex align-items-center justify-content-between">
                             <div class="d-flex flex-column">
                                 <span class="fw-medium text-dark">' . e($date) . '</span>
-                                <small class="text-muted"><i class="ri-time-line me-1"></i>' . e($time) . '</small>
                             </div>
                             <span class="badge ' . $methodClass . ' method-pill ms-3">' . strtoupper(e($row->metode_bayar)) . '</span>
                         </div>';
                 })
+                ->addColumn('action', function ($row) {
+                    // Helper to prevent crash if route is missing (optional safety)
+                    $showUrl = Route::has('payment.show') ? route('payment.show', $row->payment_id) : '#';
+                    $editUrl = Route::has('payment.edit') ? route('payment.edit', $row->payment_id) : '#';
+                    $deleteUrl = Route::has('payment.destroy') ? route('payment.destroy', $row->payment_id) : '#';
 
+                    return '
+                <div class="d-flex align-items-center gap-2">
+                    <a href="' . $showUrl . '" class="btn btn-sm btn-icon btn-label-info" title="Details">
+                        <i class="ri-eye-line"></i>
+                    </a>
+                    <a href="' . $editUrl . '" class="btn btn-sm btn-icon btn-label-warning" title="Edit">
+                        <i class="ri-pencil-line"></i>
+                    </a>
+                    <button type="button" class="btn btn-sm btn-icon btn-label-danger btn-delete-ajax" 
+            data-url="' . $deleteUrl . '" 
+            title="Delete">
+            <i class="ri-delete-bin-line"></i>
+        </button>
+                </div>';
+                })
                 // Search Filters (unchanged)
                 ->filterColumn('referensi', function ($query, $keyword) {
                     $query->whereHas('invoice', function ($q) use ($keyword) {
@@ -114,7 +135,7 @@ class PaymentController extends Controller
                     $query->orderBy('payment_date', $order);
                 })
 
-                ->rawColumns(['referensi', 'pelanggan', 'amount', 'tanggal_metode'])
+                ->rawColumns(['referensi', 'pelanggan', 'amount', 'tanggal_metode', 'action'])
                 ->make(true);
         }
 
@@ -187,6 +208,140 @@ class PaymentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function show($payment_id)
+    {
+        $payment = Payment::with([
+            'invoice',
+            'invoice.delivery',
+            'invoice.delivery.po',
+            'invoice.delivery.po.customer',
+            'invoice.delivery.po.input_user',
+            'invoice.payment',        // all payments for payment history table
+            'input_user',              // recorded by (input_by foreign key)
+        ])->findOrFail($payment_id);
+
+        // Extract invoice so the blade can use $invoice as its root,
+        // while $payment remains available if needed separately.
+        $invoice = $payment->invoice;
+
+        return view('payment-show', compact('payment', 'invoice'));
+    }
+    /**
+     * Delete a payment record and reverse its side effects.
+     * Called via AJAX DELETE from the index page.
+     */
+    public function destroy(Payment $payment)
+    {
+        try {
+            // 1. Grab references BEFORE deleting (they'll be gone after)
+            $invoice  = $payment->invoice;
+            $delivery = $invoice?->delivery;
+            $po       = $delivery?->po;
+
+            // 2. Delete the payment
+            $payment->delete();
+
+            // 3. Reverse invoice status back to Unpaid (0) if no other payments exist
+            if ($invoice) {
+                $remainingPayments = $invoice->payment()->count(); // hasOne, so 0 or 1
+                if ($remainingPayments === 0) {
+                    $invoice->update(['status_invoice' => 0]);
+                }
+            }
+
+            // 4. Re-sync PO status up the chain
+            if ($po) {
+                $po->syncStatus();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pembayaran berhasil dihapus.',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Show the form to edit an existing payment.
+     */
+
+    public function edit(Payment $payment)
+    {
+        // Pull unpaid invoices + the one already on this payment
+        // Uses Eloquent with() — reads column names from YOUR models
+        $invoices = Invoice::with(['delivery.po.customer'])
+            ->where(function ($q) use ($payment) {
+                $q->where('status_invoice', 0)
+                    ->orWhere('invoice_id', $payment->invoice_id);
+            })
+            ->get()
+            ->map(function ($inv) {
+                return (object) [
+                    'invoice_id'    => $inv->invoice_id,
+                    'nomor_invoice' => $inv->nomor_invoice,
+                    'total_display' => optional($inv->delivery?->po)->total ?? 0,
+                    'customer_name' => optional($inv->delivery?->po?->customer)->nama_cust
+                        ?? optional($inv->delivery?->po?->customer)->name
+                        ?? optional($inv->delivery?->po?->customer)->customer_name
+                        ?? '(no customer)',
+                ];
+            });
+
+        return view('payment-edit', compact('payment', 'invoices'));
+    }
+    /**
+     * Update an existing payment record.
+     * Handles PO/Invoice status re-sync on change.
+     */
+    public function update(Request $request, Payment $payment)
+    {
+        $validated = $request->validate([
+            'invoice_id'   => 'required|exists:tbl_invoice,invoice_id',
+            'amount'       => 'required|numeric|min:1',
+            'metode_bayar' => 'required|string|max:100',
+            'payment_date' => 'required|date',
+        ]);
+
+        try {
+            // 1. Grab the OLD invoice before we change anything
+            $oldInvoice  = $payment->invoice;
+            $oldDelivery = $oldInvoice?->delivery;
+            $oldPo       = $oldDelivery?->po;
+
+            // 2. Save updated payment
+            $payment->update($validated);
+
+            // 3. If the invoice_id CHANGED, reverse the old invoice back to Unpaid
+            if ($oldInvoice && $oldInvoice->invoice_id != $validated['invoice_id']) {
+                $oldInvoice->update(['status_invoice' => 0]);
+                $oldPo?->syncStatus();
+            }
+
+            // 4. Mark the NEW (or same) invoice as Paid and re-sync its PO
+            $newInvoice = $payment->fresh()->invoice;
+            if ($newInvoice) {
+                $newInvoice->update(['status_invoice' => 1]);
+                $newInvoice->delivery?->po?->syncStatus();
+            }
+
+            return response()->json([
+                'success'      => true,
+                'message'      => 'Pembayaran berhasil diperbarui.',
+                'redirect_url' => route('payment.index'),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memperbarui: ' . $e->getMessage(),
             ], 500);
         }
     }

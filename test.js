@@ -1,154 +1,89 @@
-jQuery(document).ready(function ($) {
+document.addEventListener("DOMContentLoaded", function () {
   function updateCardStats() {
     $.ajax({
       url: '/api/dashboard-stats', // The route we created in Step 2
       method: 'GET',
       success: function (data) {
-        // Options: useEasing, useGrouping, separator, decimal, etc.
         const moneyOptions = {
+          startVal: 0, // <--- THIS FORCES IT TO START FROM ZERO
           prefix: 'Rp ',
           separator: '.',
           decimal: ',',
-          duration: 2
+          duration: 3
         };
 
         const numberOptions = {
-          duration: 2
-        };
+          startVal: 0, // <--- THIS FORCES IT TO START FROM ZERO
+          duration: 3
+        }; // Animate each card
+        // Initialize and start the animations
+        const danaTersedia = new CountUp('dana-tersedia', data.danaTersedia, numberOptions);
+        const totalDanaDitf = new CountUp('total-dana-ditf', data.totalDanaDitf, numberOptions);
+        const investasiDikembalikan = new CountUp('investasi-dikembalikan', data.investasiDikembalikan, numberOptions);
+        const totalTfInvestasi = new CountUp('total-tf-investasi', data.totalTfInvestasi, numberOptions);
+        const marginDiterima = new CountUp('margin-diterima', data.marginDiterima, numberOptions);
+        const totalMargin = new CountUp('total-margin', data.totalMargin, numberOptions);
+        const sisaMargin = new CountUp('sisa-margin', data.sisaMargin, numberOptions);
+        const marginTersedia = new CountUp('margin-tersedia', data.marginTersedia, numberOptions);
+        const investasiDitahan = new CountUp('investasi-ditahan', data.investasiDitahan, numberOptions);
+        const marginDitahan = new CountUp('margin-ditahan', data.marginDitahan, numberOptions);
 
-        // Animate each card
-        // Note: data.incoming matches the keys in the JSON response
-        new countUp.CountUp('card-incoming', data.incoming, numberOptions).start();
-        new countUp.CountUp('card-price', data.price, moneyOptions).start();
-        new countUp.CountUp('card-capital', data.capital, moneyOptions).start();
-        new countUp.CountUp('card-margin', data.margin, moneyOptions).start();
+        danaTersedia.start();
+        totalDanaDitf.start();
+        investasiDikembalikan.start();
+        totalTfInvestasi.start();
+        marginDiterima.start();
+        totalMargin.start();
+        sisaMargin.start();
+        marginTersedia.start();
+        investasiDitahan.start();
+        marginDitahan.start();
       },
       error: function (err) {
         console.error('Failed to fetch stats', err);
       }
     });
   }
+  updateCardStats();
+});
 
-  jQuery(document).ready(function ($) {
-    // 1. Trigger animation on initial page load
-    updateCardStats();
+// Simplified Version
 
-    // 2. Trigger animation whenever DataTable reloads (Search, Pagination, or .ajax.reload())
-    // Your table ID is '#table-incoming' based on the file provided
-    $('#table-incoming').on('xhr.dt', function (e, settings, json, xhr) {
-      updateCardStats();
-    });
-  });
-  $(document).on('click', '.btn-delete-ajax', function () {
-    let deleteUrl = $(this).data('url');
-    let poNo = $(this).data('po');
+document.addEventListener("DOMContentLoaded", () => {
+  const numberOptions = { startVal: 0, duration: 3 };
 
-    Swal.fire({
-      title: 'Hapus Data?',
-      text: `Apakah Anda yakin ingin menghapus PO #${poNo}?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Ya, Hapus!',
-      cancelButtonText: 'Batal',
-      showLoaderOnConfirm: true, // Shows a loading spinner on the button
-      preConfirm: () => {
-        return $.ajax({
-          url: deleteUrl,
-          type: 'POST',
-          data: {
-            _method: 'DELETE',
-            _token: '{{ csrf_token() }}'
-          },
-          success: function (response) {
-            return response;
-          },
-          error: function (xhr) {
-            // Pull the error message from the controller's JSON response
-            let msg = xhr.responseJSON ? xhr.responseJSON.message : 'Terjadi kesalahan.';
-            Swal.showValidationMessage(`Request failed: ${msg}`);
+  // 1. Map your API data keys to their corresponding HTML IDs
+  const statsMap = [
+    'dana-tersedia', 'total-dana-ditf', 'investasi-dikembalikan',
+    'total-tf-investasi', 'margin-diterima', 'total-margin',
+    'sisa-margin', 'margin-tersedia', 'investasi-ditahan', 'margin-ditahan'
+  ];
+
+  function updateCardStats() {
+    $.getJSON('/api/dashboard-stats')
+      .done(data => {
+        statsMap.forEach(id => {
+          // Convert kebab-case ID to camelCase data key if they differ, 
+          // or just use the ID as the key if they match.
+          const dataKey = id.replace(/-([a-z])/g, g => g[1].toUpperCase());
+
+          if (data[dataKey] !== undefined) {
+            new CountUp(id, data[dataKey], numberOptions).start();
           }
         });
-      },
-      allowOutsideClick: () => !Swal.isLoading()
-    }).then(result => {
-      if (result.isConfirmed) {
-        Swal.fire('Terhapus!', result.value.message, 'success');
-        $('#table-incoming').DataTable().ajax.reload(null, false);
-      }
-    });
-  });
-  var dt_table = $('#table-incoming');
+      })
+      .fail(err => console.error('Failed to fetch stats', err));
+  }
 
-  if (dt_table.length) {
-    dt_table.DataTable({
-      processing: true,
-      serverSide: true,
-      ajax: "{{ route('incomingPo') }}",
-      columns: [
-        {
-          data: 'DT_RowIndex',
-          name: 'DT_RowIndex',
-          orderable: false,
-          searchable: false,
-          className: 'text-center fw-medium text-muted'
-        },
-        {
-          data: 'no_po',
-          name: 'no_po'
-        },
-        {
-          data: 'tgl_po',
-          name: 'tgl_po'
-        },
-        {
-          data: 'product_customer',
-          name: 'nama_barang'
-        },
-        {
-          data: 'qty',
-          name: 'qty',
-          className: 'text-center'
-        },
-        {
-          data: 'total',
-          name: 'total',
-          className: 'text-end fw-bold bg-financial'
-        },
-        {
-          data: 'modal_awal',
-          name: 'modal_awal',
-          className: 'text-end text-muted'
-        },
-        {
-          data: 'margin',
-          name: 'margin',
-          className: 'text-end fw-bold text-success bg-profit'
-        },
-        {
-          data: 'action',
-          name: 'action',
-          orderable: false,
-          searchable: false,
-          className: 'text-center'
-        }
-      ],
-      order: [[2, 'desc']],
-      displayLength: 10,
-      dom: '<"card-body d-flex flex-column flex-md-row justify-content-between align-items-center pt-0"<"me-md-2"l><"dt-action-buttons text-end"f>>t<"card-body d-flex flex-column flex-md-row justify-content-between"<"me-md-2"i><"p-0"p>>',
-      language: {
-        url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json', // Indonesian language pack
-        processing:
-          '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Memuat...</span></div>',
-        search: '',
-        searchPlaceholder: 'Cari...', // Indonesian placeholder
-        sLengthMenu: '_MENU_',
-        paginate: {
-          next: '<i class="ri-arrow-right-s-line"></i>',
-          previous: '<i class="ri-arrow-left-s-line"></i>'
-        }
-      }
-    });
+  // Initial load
+  updateCardStats();
+
+  // 2. THE AUTO-UPDATE: Listen for the Laravel Broadcast event
+  if (typeof Echo !== 'undefined') {
+    Echo.channel('global-updates')
+      .listen('CrudActionOccurred', (e) => {
+        console.log('Real-time update triggered:', e.message);
+        updateCardStats(); // Re-run the animation with new data
+      });
   }
 });

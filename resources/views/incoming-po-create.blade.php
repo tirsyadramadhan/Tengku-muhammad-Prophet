@@ -80,13 +80,38 @@
               <div class="invalid-feedback" id="harga-error">Harga wajib diisi.</div>
             </div>
 
-            {{-- UPDATED: Removed required asterisk, removed live-validate, added Opsional label --}}
             <div class="col-md-4">
-              <label class="form-label fw-bold">Margin (%) <span class="text-muted">(Opsional)</span></label>
-              <input maxlength="2" type="text" name="margin_percentage" id="margin_percentage" class="form-control numeric-only" placeholder="0" step="0.1">
+              <label for="margin_percentage" class="form-label fw-bold d-block">
+                Margin <span class="text-muted small fw-normal">(Opsional)</span>
+              </label>
+
+              <div class="input-group mb-2">
+                <input type="text"
+                  maxlength="2"
+                  name="margin_percentage"
+                  id="margin_percentage"
+                  class="form-control numeric-only"
+                  placeholder="0"
+                  step="0.1">
+                <span class="input-group-text">%</span>
+              </div>
+
+              <div class="d-flex flex-wrap gap-3 mt-2">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="margin_type" id="from_modal" value="modal">
+                  <label class="form-check-label small text-secondary" for="from_modal">
+                    Dari Modal
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="margin_type" id="from_po" value="po">
+                  <label class="form-check-label small text-secondary" for="from_po">
+                    Dari Total PO
+                  </label>
+                </div>
+              </div>
             </div>
 
-            {{-- UPDATED: Removed live-validate class --}}
             <div class="col-md-12">
               <label class="form-label fw-bold">Tambahan Margin (Rp) <span class="text-muted">(Opsional)</span></label>
               <input maxlength="14" type="text" id="tambahan_margin_display" class="form-control currency-input numeric-only" placeholder="0">

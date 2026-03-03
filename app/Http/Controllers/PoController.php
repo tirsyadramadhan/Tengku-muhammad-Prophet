@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Po;
-use App\Models\Delivery;
-use App\Models\Invoice;
 use App\Models\Customer;
-use Yajra\DataTables\Facades\DataTables; // Don't forget to import this at the top!
+use Yajra\DataTables\Facades\DataTables;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Route;
+use App\Exports\PoExport;
+use App\Imports\PoImport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PoController extends Controller
 {
@@ -35,6 +36,7 @@ class PoController extends Controller
             'qty'               => 'required|numeric|min:1',
             'harga'             => 'required|numeric|min:0',
             'margin_percentage' => 'nullable|numeric|min:0',
+            'margin_type' => 'required|in:modal,po',
             'tambahan_margin'   => 'nullable|numeric|min:0',
         ]);
 
@@ -53,20 +55,26 @@ class PoController extends Controller
         $percentage = (float) ($request->margin_percentage ?? 0);
         $tambahan = (float) ($request->tambahan_margin ?? 0);
 
-        // 3. Updated Margin Calculation Logic
-        $totalPrice = $qty * $harga;
-
-        $percentage = $request->margin_percentage; // 20%
-
-        // Calculation: (10,000,000 * 0.20) + 1,000,000 = 3,000,000
-        $calculatedMargin = ($totalPrice * ($percentage / 100)) + $tambahan;
-
-        // 4. Prepare Data
-        $data = $validator->validated();
-        $data['no_po'] = $generatedNoPo;
-        $data['status'] = 0;
-        $data['margin'] = $calculatedMargin;
-        $data['tambahan_margin'] = $tambahan;
+        if ($request->margin_type == "modal") {
+            $total = $qty * $harga;
+            $modal = $total / 2;
+            $percentageMargin = $request->margin_percentage;
+            $finalMargin = ($modal * ($percentageMargin / 100)) + $tambahan;
+            $data = $validator->validated();
+            $data['no_po'] = $generatedNoPo;
+            $data['status'] = 0;
+            $data['margin'] = $finalMargin;
+            $data['tambahan_margin'] = $tambahan;
+        } else {
+            $totalPrice = $qty * $harga;
+            $percentage = $request->margin_percentage;
+            $calculatedMargin = ($totalPrice * ($percentage / 100)) + $tambahan;
+            $data = $validator->validated();
+            $data['no_po'] = $generatedNoPo;
+            $data['status'] = 0;
+            $data['margin'] = $calculatedMargin;
+            $data['tambahan_margin'] = $tambahan;
+        }
 
         // 5. Create
         try {
@@ -84,6 +92,12 @@ class PoController extends Controller
                 ->select('tbl_po.*')
                 ->where('status', 0);
 
+            $totals = Po::where('status', 0)->selectRaw('
+        SUM(qty)       as qty,
+        SUM(total)     as total,
+        SUM(modal_awal) as modal_awal,
+        SUM(margin)    as margin
+    ')->first();
             return DataTables::of($query)
                 // 2. No Column: Automatically generates sequence 1..Max
                 ->addIndexColumn()
@@ -151,6 +165,12 @@ class PoController extends Controller
                 })
                 // IMPORTANT: Add 'action' here so HTML renders correctly
                 ->rawColumns(['no_po', 'product_customer', 'status_badge', 'action'])
+                ->with('totals', [
+                    'qty'       => $totals->qty       ?? 0,
+                    'total'     => $totals->total     ?? 0,
+                    'modal_awal' => $totals->modal_awal ?? 0,
+                    'margin'    => $totals->margin     ?? 0,
+                ])
                 ->make(true);
         }
 
@@ -167,6 +187,7 @@ class PoController extends Controller
     public function index(Request $request)
     {
         Po::syncAll();
+
         if ($request->ajax()) {
             // Updated filter: status != 0 (excludes Incoming)
             $query = Po::with('customer')
@@ -177,7 +198,12 @@ class PoController extends Controller
                         ->selectRaw('COALESCE(SUM(qty_delivered), 0)');
                 }, 'total_delivered')
                 ->where('status', '!=', 0);
-
+            $totals = Po::where('status', '!=', 0)->selectRaw('
+        SUM(qty)       as qty,
+        SUM(total)     as total,
+        SUM(modal_awal) as modal_awal,
+        SUM(margin)    as margin
+    ')->first();
             return DataTables::of($query)
                 ->addIndexColumn()
                 ->editColumn('tgl_po', function ($row) {
@@ -205,21 +231,20 @@ class PoController extends Controller
 
                     // Define mapping for statuses 1-7 (0 is excluded)
                     $statusMap = [
-                        0 => ['label' => 'INCOMING', 'class' => 'bg-label-secondary', 'icon' => 'ri-edit-box-line'],
-                        1 => ['label' => 'OPEN', 'class' => 'bg-label-warning', 'icon' => 'ri-mail-send-line'],
+                        1 => ['label' => 'Open', 'class' => 'bg-label-warning', 'icon' => 'ri-mail-send-line'],
 
                         // Physical/Logistics Phase (Blue tones)
-                        2 => ['label' => 'PARTIAL DELIVERY', 'class' => 'bg-label-info', 'icon' => 'ri-truck-line'],
-                        3 => ['label' => 'FULL DELIVERY', 'class' => 'bg-label-info', 'icon' => 'ri-checkbox-circle-line'],
+                        2 => ['label' => 'Partially Delivered', 'class' => 'bg-label-info', 'icon' => 'ri-truck-line'],
+                        3 => ['label' => 'Fully Delivered', 'class' => 'bg-label-info', 'icon' => 'ri-checkbox-circle-line'],
 
                         // Mixed/Billing Phase (Purple/Indigo tones)
-                        4 => ['label' => 'PARTIAL DELIV & BILL', 'class' => 'bg-label-primary', 'icon' => 'ri-exchange-box-line'],
-                        5 => ['label' => 'DELIVERED, PARTIAL BILL', 'class' => 'bg-label-primary', 'icon' => 'ri-draft-line'],
-                        6 => ['label' => 'PARTIAL DELIV, FULL BILL', 'class' => 'bg-label-primary', 'icon' => 'ri-file-warning-line'],
+                        4 => ['label' => 'Partially Delivered & Partially Invoiced', 'class' => 'bg-label-primary', 'icon' => 'ri-exchange-box-line'],
+                        5 => ['label' => 'Fully Delivered & Partially Invoiced', 'class' => 'bg-label-primary', 'icon' => 'ri-draft-line'],
+                        6 => ['label' => 'Partially Delivered & Fully Invoiced', 'class' => 'bg-label-primary', 'icon' => 'ri-file-warning-line'],
 
                         // Finalization (Success Green)
-                        7 => ['label' => 'WAITING PAYMENT', 'class' => 'bg-label-success', 'icon' => 'ri-check-double-line'],
-                        8 => ['label' => 'CLOSED', 'class' => 'bg-label-success', 'icon' => 'ri-verified-badge-fill'],
+                        7 => ['label' => 'Fully Delivered & Fully Invoiced', 'class' => 'bg-label-success', 'icon' => 'ri-check-double-line'],
+                        8 => ['label' => 'Closed', 'class' => 'bg-label-success', 'icon' => 'ri-verified-badge-fill'],
                     ];
                     $default = ['label' => 'UNKNOWN', 'class' => 'bg-label-secondary', 'icon' => 'ri-question-line'];
                     $map = $statusMap[$statusVal] ?? $default;
@@ -229,33 +254,21 @@ class PoController extends Controller
                 </span>';
                 })
                 ->filterColumn('status', function ($query, $keyword) {
-                    $keyword = strtolower($keyword);
-
-                    $statusMapping = [
-                        'open' => 1,
-                        'partially delivered' => 2,
-                        'fully delivered' => 3,
-                        'partially delivered & partially invoiced' => 4,
-                        'fully delivered & partially invoiced' => 5,
-                        'partially delivered & fully invoiced' => 6,
-                        'closed' => 7,
-                    ];
-
-                    $matched = false;
-                    foreach ($statusMapping as $text => $value) {
-                        if (str_contains($keyword, $text)) {
-                            $query->where('tbl_po.status', $value);
-                            $matched = true;
-                            break;
-                        }
-                    }
-
-                    if (!$matched && is_numeric($keyword)) {
-                        $query->where('tbl_po.status', (int)$keyword);
-                    } elseif (!$matched) {
-                        $query->whereRaw('1 = 0');
-                    }
+                    $query->whereRaw("
+        CASE tbl_po.status
+            WHEN 1 THEN 'Open'
+            WHEN 2 THEN 'Partially Delivered'
+            WHEN 3 THEN 'Fully Delivered'
+            WHEN 4 THEN 'Partially Delivered & Partially Invoiced'
+            WHEN 5 THEN 'Fully Delivered & Partially Invoiced'
+            WHEN 6 THEN 'Partially Delivered & Fully Invoiced'
+            WHEN 7 THEN 'Fully Delivered & Fully Invoiced'
+            WHEN 8 THEN 'Closed'
+            ELSE 'Unknown'
+        END LIKE ?
+    ", ["%{$keyword}%"]);
                 })
+
                 ->addColumn('action', function ($row) {
                     // Helper to prevent crash if route is missing (optional safety)
                     $showUrl = Route::has('po.show') ? route('po.show', $row->po_id) : '#';
@@ -279,18 +292,16 @@ class PoController extends Controller
                 </div>';
                 })
                 ->rawColumns(['no_po', 'product_customer', 'status_badge', 'action'])
+                ->with('totals', [
+                    'qty'       => $totals->qty       ?? 0,
+                    'total'     => $totals->total     ?? 0,
+                    'modal_awal' => $totals->modal_awal ?? 0,
+                    'margin'    => $totals->margin     ?? 0,
+                ])
+
                 ->make(true);
         }
-
-        // STATS: Also updated here to ensure totals match the table data
-        $filteredStats = Po::where('status', '!=', 0);
-
-        $totalPo = $filteredStats->count();
-        $totalRevenue = $filteredStats->sum('total');
-        $totalCapital = $filteredStats->sum('modal_awal');
-        $totalMargin = $filteredStats->sum('margin');
-
-        return view('po-index', compact('totalPo', 'totalRevenue', 'totalCapital', 'totalMargin'));
+        return view('po-index');
     }
     public function create()
     {
@@ -584,5 +595,33 @@ class PoController extends Controller
                 'message' => 'Terjadi kesalahan sistem.'
             ], 500);
         }
+    }
+
+    public function export()
+    {
+        return Excel::download(new PoExport, 'purchase_orders.xlsx');
+    }
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file'        => 'required|mimes:xlsx,xls,csv',
+        ]);
+
+        try {
+            Excel::import(new PoImport(1), $request->file('file'));
+            return response()->json(['success' => true, 'message' => 'Data berhasil diimport.']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+    public function importForm()
+    {
+        return view("po-import");
+    }
+
+    public function refresh()
+    {
+        Po::syncAll();
+        return response()->json(['message' => 'OK']);
     }
 }

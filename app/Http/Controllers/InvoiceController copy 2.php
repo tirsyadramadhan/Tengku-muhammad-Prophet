@@ -19,62 +19,19 @@ class InvoiceController extends Controller
     {
         Invoice::syncAllInvoiceStatus();
         if ($request->ajax()) {
-            $data = Invoice::query()
-                ->leftJoin('tbl_delivery', 'tbl_invoice.delivery_id', '=', 'tbl_delivery.delivery_id')
-                ->leftJoin('tbl_po', 'tbl_delivery.po_id', '=', 'tbl_po.po_id')
-                ->leftJoin('tbl_payment', 'tbl_invoice.invoice_id', '=', 'tbl_payment.invoice_id')
-                ->select([
-                    'tbl_invoice.*',
-                    'tbl_delivery.delivery_no',
-                    'tbl_delivery.qty_delivered',          // Added
-                    'tbl_po.no_po',
-                    'tbl_po.nama_barang',
-                    'tbl_po.harga',                         // Added
-                    'tbl_po.total as po_total',
-                    DB::raw('tbl_delivery.qty_delivered * tbl_po.harga as invoice_amount'), // Computed
-                    'tbl_payment.payment_date',
-                    'tbl_payment.amount as paid_amount'
-                ]);
-
+            $data = Invoice::select([
+                'tbl_invoice.*',
+                'tbl_delivery.delivery_no'
+            ])->join('tbl_delivery', 'tbl_delivery.delivery_id', '=', 'tbl_invoice.delivery_id')->get();
             return DataTables::of($data)
                 ->addIndexColumn()
-
-                // --- Column Definitions ---
-                ->addColumn('invoice_details', function ($row) {
-                    $date = $row->tgl_invoice ? \Carbon\Carbon::parse($row->tgl_invoice)->format('d M Y') : '-';
-                    return '<div class="d-flex flex-column">
-                        <span class="fw-bold text-primary">' . e($row->nomor_invoice) . '</span>
-                        <small class="text-muted"><i class="ri-calendar-line me-1"></i>' . $date . '</small>
-                    </div>';
-                })
-                ->addColumn('linked_references', function ($row) {
-                    $po = $row->no_po ?? 'N/A';
-                    $del = $row->delivery_no ?? 'N/A';
-                    return '<div class="d-flex flex-column">
-                        <span class="fw-bold text-dark"><i class="ri-file-list-3-line me-1"></i>' . e($po) . '</span>
-                        <small class="text-muted"><i class="ri-truck-line me-1"></i>' . e($del) . '</small>
-                    </div>';
-                })
-                ->addColumn('status_section', function ($row) {
-                    $isPaid = $row->status_invoice == 1;
-                    $badge = $isPaid ? '<span class="badge bg-label-success rounded-pill">PAID</span>' : '<span class="badge bg-label-warning rounded-pill">UNPAID</span>';
-                    $amount = number_format($row->invoice_amount ?? 0, 0, ',', ',');
-                    return '<div class="d-flex flex-column align-items-end">
-                        <span class="fw-bold">Rp ' . $amount . '</span>
-                        <div class="mt-1">' . $badge . '</div>
-                    </div>';
-                })
-                ->addColumn('due_date_timer', function ($row) {
+                ->addColumn('status_invoice', function ($row) {
                     if ($row->status_invoice == 1) {
-                        return '<span class="badge bg-label-success rounded-pill px-3">
-                        <i class="ri-check-double-line me-1"></i>PAID
-                    </span>';
+                        return
+                            '
+
+                        ';
                     }
-                    if (!$row->due_date) return '<span class="text-muted">-</span>';
-                    return '<div class="timer-wrapper badge bg-label-info" data-target="' . $row->due_date . '">
-                    <i class="ri-time-line me-1"></i>
-                    <span class="countdown-display">Calculating...</span>
-                </div>';
                 })
                 ->addColumn('action', function ($row) {
                     // Helper to prevent crash if route is missing (optional safety)
@@ -98,56 +55,7 @@ class InvoiceController extends Controller
         </button>
                 </div>';
                 })
-                // --- Order Columns ---
-                ->orderColumn('invoice_details', function ($query, $order) {
-                    $query->orderBy('tbl_invoice.nomor_invoice', $order);
-                })
-                ->orderColumn('linked_references', function ($query, $order) {
-                    $query->orderBy('tbl_po.no_po', $order);
-                })
-                ->orderColumn('status_section', function ($query, $order) {
-                    $query->orderBy('invoice_amount', $order); // Now orders by the computed amount
-                })
-                ->orderColumn('due_date_timer', function ($query, $order) {
-                    $query->orderBy('tbl_invoice.due_date', $order);
-                })
-
-                // --- Search Filters ---
-                ->filterColumn('status_section', function ($query, $keyword) {
-                    $keyword = strtolower($keyword);
-                    $query->where(function ($q) use ($keyword) {
-                        if ($keyword === 'paid') {
-                            $q->orWhere('tbl_invoice.status_invoice', 1);
-                        } elseif ($keyword === 'unpaid') {
-                            $q->orWhere('tbl_invoice.status_invoice', 0);
-                        }
-                        $cleanKeyword = preg_replace('/[^0-9]/', '', $keyword);
-                        if ($cleanKeyword != '') {
-                            // Allow searching by the amount (numeric)
-                            $q->orWhere(DB::raw('tbl_delivery.qty_delivered * tbl_po.harga'), 'like', "%{$cleanKeyword}%");
-                        }
-                    });
-                })
-                ->filterColumn('due_date_timer', function ($query, $keyword) {
-                    $keyword = strtolower($keyword);
-                    if ($keyword === 'overdue') {
-                        $query->where('tbl_invoice.status_invoice', 0)
-                            ->where('tbl_invoice.due_date', '<', now());
-                    } elseif ($keyword === 'paid') {
-                        $query->where('tbl_invoice.status_invoice', 1);
-                    } else {
-                        $query->where('tbl_invoice.due_date', 'like', "%{$keyword}%");
-                    }
-                })
-                ->filterColumn('invoice_details', function ($query, $keyword) {
-                    $query->where('tbl_invoice.nomor_invoice', 'like', "%{$keyword}%");
-                })
-                ->filterColumn('linked_references', function ($query, $keyword) {
-                    $query->where('tbl_po.no_po', 'like', "%{$keyword}%")
-                        ->orWhere('tbl_delivery.delivery_no', 'like', "%{$keyword}%");
-                })
-
-                ->rawColumns(['invoice_details', 'linked_references', 'status_section', 'due_date_timer', 'action'])
+                ->rawColumns(['action'])
                 ->make(true);
         }
 

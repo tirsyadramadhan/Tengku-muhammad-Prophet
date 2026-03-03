@@ -4,7 +4,6 @@ import html from '@rollup/plugin-html';
 import { glob } from 'glob';
 import path from 'path';
 import iconsPlugin from './vite.icons.plugin.js';
-
 /**
  * Get Files from a directory
  * @param {string} query

@@ -515,10 +515,11 @@
                     <thead>
                         <tr>
                             <th>No</th>
-                            <th>Detail Faktur</th>
-                            <th>Referensi (PO / Del)</th>
-                            <th class="text-end">Jumlah &amp; Status</th>
-                            <th class="text-center">Jatuh Tempo</th>
+                            <th>Nomor Invoice</th>
+                            <th>Nomor Delivery</th>
+                            <th>Tanggal Invoice</th>
+                            <th class="text-end">Tenggat Waktu</th>
+                            <th class="text-center">Status Invoice</th>
                             <th class="text-center no-export">Aksi</th>
                         </tr>
                     </thead>
@@ -603,21 +604,25 @@
                     searchable: false
                 },
                 {
-                    data: 'invoice_details',
-                    name: 'invoice_details'
+                    data: 'nomor_invoice',
+                    name: 'nomor_invoice'
                 },
                 {
-                    data: 'linked_references',
-                    name: 'linked_references'
+                    data: 'delivery_no',
+                    name: 'delivery_no'
                 },
                 {
-                    data: 'status_section',
-                    name: 'status_section',
+                    data: 'tgl_invoice',
+                    name: 'tgl_invoice'
+                },
+                {
+                    data: 'due_date',
+                    name: 'due_date',
                     className: 'text-end'
                 },
                 {
-                    data: 'due_date_timer',
-                    name: 'due_date_timer',
+                    data: 'status_invoice',
+                    name: 'status_invoice',
                     className: 'text-center'
                 },
                 {
@@ -627,6 +632,9 @@
                     searchable: false,
                     className: 'text-center'
                 }
+            ],
+            order: [
+                [4, 'desc']
             ],
             pageLength: 10,
         });

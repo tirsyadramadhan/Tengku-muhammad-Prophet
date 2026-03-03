@@ -31,8 +31,6 @@
 
 @section('content')
 <div class="container-xxl flex-grow-1 container-p-y">
-    <h4 class="fw-bold py-3 mb-4"><span class="text-muted fw-light">Finance /</span> Create Investment</h4>
-
     <div class="row">
         <div class="col-md-8 mx-auto">
             <div class="card mb-4">
@@ -44,11 +42,6 @@
                         <input type="hidden" name="mode_setor" id="mode_setor" value="auto">
                         <input type="hidden" name="mode_po_baru" id="mode_po_baru" value="auto">
                         <input type="hidden" name="mode_margin" id="mode_margin" value="auto">
-
-                        <div class="mb-4">
-                            <label class="form-label">Period (Month-Year)</label>
-                            <input type="month" class="form-control" name="tgl_manual" required value="{{ date('Y-m') }}">
-                        </div>
 
                         <div class="mb-4 input-group-wrapper">
                             <div class="d-flex justify-content-between align-items-center mb-1">
@@ -76,7 +69,7 @@
                             </div>
 
                             <div id="setor_manual_container" class="hidden-input">
-                                <input type="number" class="form-control manual-input" name="manual_setor_awal" value="0" step="1000">
+                                <input type="number" class="form-control manual-input" name="manual_setor_awal">
                             </div>
                         </div>
 
@@ -107,7 +100,7 @@
                             </div>
 
                             <div id="po_baru_manual_container" class="hidden-input">
-                                <input type="number" class="form-control manual-input" name="manual_po_baru" value="0" step="1000">
+                                <input type="number" class="form-control manual-input" name="manual_po_baru">
                             </div>
                         </div>
 

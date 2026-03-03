@@ -87,4 +87,37 @@ class Delivery extends Model
     {
         return $this->belongsTo(User::class, 'edit_by', 'user_id');
     }
+
+    /**
+     * Sync invoiced_status for a single delivery.
+     * 1 = has invoice, 0 = no invoice
+     */
+    public function syncInvoicedStatus(): void
+    {
+        $hasInvoice = $this->invoice()->exists() ? 1 : 0;
+
+        if ($this->invoiced_status !== $hasInvoice) {
+            $this->timestamps = false;
+            $this->update(['invoiced_status' => $hasInvoice]);
+        }
+    }
+
+    /**
+     * Sync invoiced_status for ALL deliveries. Chunked for performance.
+     */
+    public static function syncAllInvoicedStatus(): void
+    {
+        self::with('invoice')
+            ->chunkById(200, function ($deliveries) {
+                foreach ($deliveries as $delivery) {
+                    $hasInvoice = $delivery->invoice ? 1 : 0;
+
+                    if ($delivery->invoiced_status !== $hasInvoice) {
+                        // Use query builder to skip model events & timestamps
+                        self::where('delivery_id', $delivery->delivery_id)
+                            ->update(['invoiced_status' => $hasInvoice]);
+                    }
+                }
+            });
+    }
 }

@@ -9,57 +9,81 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Facades\Route;
+use Carbon\Carbon;
+use App\Imports\InvestasiImport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class InvestasiController extends Controller
 {
+    // ============================================================
+    // REPLACE your entire index() method with this
+    // ============================================================
+
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            // FIX 1: Remove ->orderBy('id_investasi', 'desc') here.
-            // Let the Frontend DataTables 'order' parameter handle the sorting.
-            $investments = Investasi::with('pos');
+            $investments = Investasi::get();
 
             return DataTables::of($investments)
                 ->addIndexColumn()
-                ->addColumn('pos_list', function ($inv) {
-                    if ($inv->pos->count() > 0) {
-                        $html = '';
-                        foreach ($inv->pos as $po) {
-                            if (empty($po->no_po)) {
-                                $html .= '<span class="po-badge po-badge-danger"><i class="ri-error-warning-line me-1"></i> PO HAS NO PO NUMBER!</span>';
-                            } else {
-                                $html .= '<span class="po-badge" title="' . $po->nama_barang . '">' . $po->no_po . '</span>';
-                            }
-                        }
-                        return $html;
-                    }
-                    return '<span class="badge bg-label-secondary">No PO Linked</span>';
+
+                // ── MONEY COLUMNS ───────────────────────────────────────
+                ->editColumn('modal_setor_awal', fn($inv) =>
+                'Rp ' . number_format($inv->modal_setor_awal, 0, ',', '.'))
+
+                ->editColumn('modal_po_baru', fn($inv) =>
+                'Rp ' . number_format($inv->modal_po_baru, 0, ',', '.'))
+
+                ->editColumn('margin', fn($inv) =>
+                '<span style="color:#2e7d32; font-weight:600;">+Rp '
+                    . number_format($inv->margin, 0, ',', '.')
+                    . '</span>')
+
+                ->editColumn('pencairan_modal', fn($inv) =>
+                'Rp ' . number_format($inv->pencairan_modal, 0, ',', '.'))
+
+                ->editColumn('margin_cair', fn($inv) =>
+                '<span style="color:#ff3e1d; font-weight:600;">-Rp '
+                    . number_format($inv->margin_cair, 0, ',', '.')
+                    . '</span>')
+
+                ->editColumn('pengembalian_dana', function ($inv) {
+                    $color = $inv->pengembalian_dana >= 0 ? '#696cff' : '#ff3e1d';
+                    return '<span style="color:' . $color . '; font-weight:800;">'
+                        . 'Rp ' . number_format($inv->pengembalian_dana, 0, ',', '.')
+                        . '</span>';
                 })
-                ->editColumn('modal_setor_awal', fn($inv) => 'Rp ' . number_format($inv->modal_setor_awal))
-                ->editColumn('modal_po_baru', fn($inv) => 'Rp ' . number_format($inv->modal_po_baru))
-                ->editColumn('total_margin', fn($inv) => '<span class="text-success fw-semibold">+Rp ' . number_format($inv->total_margin) . '</span>')
-                ->editColumn('pencairan_modal', fn($inv) => 'Rp ' . number_format($inv->pencairan_modal))
-                ->editColumn('penarikan', fn($inv) => '<span class="text-danger">-Rp ' . number_format($inv->penarikan) . '</span>')
+
                 ->editColumn('dana_tersedia', function ($inv) {
-                    $badgeClass = $inv->dana_tersedia >= 0 ? 'bg-label-primary' : 'bg-label-danger';
-                    return '<span class="badge ' . $badgeClass . ' fs-6">Rp ' . number_format($inv->dana_tersedia) . '</span>';
+                    $color = $inv->dana_tersedia >= 0 ? '#696cff' : '#ff3e1d';
+                    return '<span style="color:' . $color . '; font-weight:800;">'
+                        . 'Rp ' . number_format($inv->dana_tersedia, 0, ',', '.')
+                        . '</span>';
                 })
-                ->rawColumns(['pos_list', 'total_margin', 'penarikan', 'dana_tersedia'])
+                ->rawColumns([
+                    'margin',
+                    'margin_cair',
+                    'pengembalian_dana',
+                    'dana_tersedia',
+                ])
                 ->make(true);
         }
 
-        // Global totals for the stat cards
-        $totalMargin       = Investasi::sum('total_margin');
-        $totalModalSetor   = Investasi::sum('modal_setor_awal');
-        $totalPenarikan    = Investasi::sum('dana_ditransfer');
-        $totalModalPoBaru  = Investasi::sum('modal_po_baru');
+        // ── STAT CARD TOTALS ────────────────────────────────────────────
+        $totalMargin      = Investasi::sum('margin');
+        $totalModalSetor  = Investasi::sum('modal_setor_awal');
+        $totalPenarikan   = Investasi::sum('pengembalian_dana');
+        $totalModalPoBaru = Investasi::sum('modal_po_baru');
+        // Fetch the latest investment record based on id_investasi
+        $investasi = Investasi::orderBy('id_investasi', 'desc')->first();
 
-        // You can keep the explicit order here for the stat card value, 
-        // as this doesn't affect the table.
-        $danaTersedia      = Investasi::sum('modal_setor_awal') - Investasi::sum('modal_po_baru') + Po::where('status', '!=', 0)->sum('margin') - Investasi::sum('penarikan') - Po::where('status', '!=', 7)
-            ->where('status', '!=', 0)
-            ->sum('margin');
+        // Initialize $prevDana to 0 in case no record exists
+        $danaTersedia = 0;
 
+        if ($investasi) {
+            $danaTersedia = $investasi->dana_tersedia;
+        }
         return view('investasi-index', compact(
             'totalMargin',
             'totalModalSetor',
@@ -77,9 +101,16 @@ class InvestasiController extends Controller
             ->get();
 
         $lastInvestasi = Investasi::orderBy('id_investasi', 'desc')->first();
-        $prevDana = Investasi::sum('modal_setor_awal') - Investasi::sum('modal_po_baru') + Po::where('status', '!=', 0)->sum('margin') - Investasi::sum('penarikan') - Po::where('status', '!=', 7)
-            ->where('status', '!=', 0)
-            ->sum('margin');
+        // Fetch the latest investment record based on id_investasi
+        $investasi = Investasi::orderBy('id_investasi', 'desc')->first();
+
+        // Initialize $prevDana to 0 in case no record exists
+        $prevDana = 0;
+
+        if ($investasi) {
+            $prevDana = $investasi->dana_tersedia;
+        }
+
         $marginTersedia = Margin::sum('margin_tersedia') - Po::where('status', '!=', 7)
             ->where('status', '!=', 0)
             ->sum('margin');
@@ -92,16 +123,15 @@ class InvestasiController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'tgl_manual'      => 'required',
             'ids_setor_awal'  => 'nullable|array',
             'ids_po_baru'     => 'nullable|array',
             'ids_margin'      => 'nullable|array',
-            'manual_setor_awal' => 'numeric|min:0',
-            'manual_po_baru'    => 'numeric|min:0',
-            'manual_total_margin' => 'numeric|min:0',
-            'pencairan_modal' => 'numeric|min:0',
+            'manual_setor_awal' => 'nullable|numeric|min:0',
+            'manual_po_baru'    => 'nullable|numeric|min:0',
+            'manual_total_margin' => 'nullable|numeric|min:0',
+            'pencairan_modal' => 'nullable|numeric|min:0',
             'penarikan'       => 'nullable|array',
-            'penarikan.*'     => 'numeric',
+            'penarikan.*'     => 'nullable|numeric',
         ]);
 
         if ($validator->fails()) {
@@ -176,7 +206,7 @@ class InvestasiController extends Controller
 
             // --- 6. Create Record ---
             $investasi = Investasi::create([
-                'tgl_investasi'    => $request->tgl_manual . '-01',
+                'tgl_investasi'    => Carbon::now(),
                 'modal_setor_awal' => $valSetor,
                 'modal_po_baru'    => $valPoBaru,
                 'total_margin'     => $valMargin,
@@ -208,5 +238,23 @@ class InvestasiController extends Controller
             DB::rollBack();
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
+    }
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file'        => 'required|mimes:xlsx,xls,csv',
+        ]);
+
+        try {
+            Excel::import(new InvestasiImport, $request->file('file'));
+            return response()->json(['success' => true, 'message' => 'Data berhasil diimport.']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function importForm()
+    {
+        return view("investasi-import");
     }
 }

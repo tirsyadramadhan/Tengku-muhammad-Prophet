@@ -1087,6 +1087,30 @@
   resolved "https://registry.npmjs.org/@keyv/serialize/-/serialize-1.1.1.tgz"
   integrity sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==
 
+"@ngrok/ngrok-win32-x64-msvc@1.7.0":
+  version "1.7.0"
+  resolved "https://registry.npmjs.org/@ngrok/ngrok-win32-x64-msvc/-/ngrok-win32-x64-msvc-1.7.0.tgz"
+  integrity sha512-UFJg/duEWzZlLkEs61Gz6/5nYhGaKI62I8dvUGdBR3NCtIMagehnFaFxmnXZldyHmCM8U0aCIFNpWRaKcrQkoA==
+
+"@ngrok/ngrok@^1.4.1":
+  version "1.7.0"
+  resolved "https://registry.npmjs.org/@ngrok/ngrok/-/ngrok-1.7.0.tgz"
+  integrity sha512-P06o9TpxrJbiRbHQkiwy/rUrlXRupc+Z8KT4MiJfmcdWxvIdzjCaJOdnNkcOTs6DMyzIOefG5tvk/HLdtjqr0g==
+  optionalDependencies:
+    "@ngrok/ngrok-android-arm64" "1.7.0"
+    "@ngrok/ngrok-darwin-arm64" "1.7.0"
+    "@ngrok/ngrok-darwin-universal" "1.7.0"
+    "@ngrok/ngrok-darwin-x64" "1.7.0"
+    "@ngrok/ngrok-freebsd-x64" "1.7.0"
+    "@ngrok/ngrok-linux-arm-gnueabihf" "1.7.0"
+    "@ngrok/ngrok-linux-arm64-gnu" "1.7.0"
+    "@ngrok/ngrok-linux-arm64-musl" "1.7.0"
+    "@ngrok/ngrok-linux-x64-gnu" "1.7.0"
+    "@ngrok/ngrok-linux-x64-musl" "1.7.0"
+    "@ngrok/ngrok-win32-arm64-msvc" "1.7.0"
+    "@ngrok/ngrok-win32-ia32-msvc" "1.7.0"
+    "@ngrok/ngrok-win32-x64-msvc" "1.7.0"
+
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
   resolved "https://registry.npmjs.org/@nodelib/fs.scandir/-/fs.scandir-2.1.5.tgz"
@@ -3560,7 +3584,14 @@ jpeg-exif@^1.1.4:
   resolved "https://registry.npmjs.org/jpeg-exif/-/jpeg-exif-1.1.4.tgz"
   integrity sha512-a+bKEcCjtuW5WTdgeXFzswSrdqi0jk4XlEtZlx5A94wCoBpFjfFTbo/Tra5SpNCl/YFZPvcV1dJc+TAYeg6ROQ==
 
-jquery@>=1.7, jquery@~3.7.1:
+jquery-ui@^1.14.2:
+  version "1.14.2"
+  resolved "https://registry.npmjs.org/jquery-ui/-/jquery-ui-1.14.2.tgz"
+  integrity sha512-1gSl7PUjyipa2adSr780Ujk16faicrV7PjPPzPtvWk7tTqBnsqp67NNV9jZK2+BIxUPXWSnIUU/LBCgwgGZE+Q==
+  dependencies:
+    jquery ">=1.12.0 <5.0.0"
+
+"jquery@>=1.12.0 <5.0.0", jquery@>=1.7, jquery@~3.7.1:
   version "3.7.1"
   resolved "https://registry.npmjs.org/jquery/-/jquery-3.7.1.tgz"
   integrity sha512-m4avr8yL8kmFN8psrbFFFmB/If14iN5o9nw/NgnnM+kybDJpRsAynV2BsfpTYrTRysYUdADVD7CkUUizgkpLfg==
@@ -5423,6 +5454,14 @@ vite-plugin-full-reload@^1.1.0:
   dependencies:
     picocolors "^1.0.0"
     picomatch "^2.3.1"
+
+vite-plugin-ngrok@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.npmjs.org/vite-plugin-ngrok/-/vite-plugin-ngrok-2.0.1.tgz"
+  integrity sha512-tHvmwltGc5TdfSMG/wtN3zVT9tnRywzoGEUFzOpmLfPl9QqkbaVFpuvfQU3tmjWTIY0SpuShc8SBaMpfMtNfwg==
+  dependencies:
+    "@ngrok/ngrok" "^1.4.1"
+    picocolors "^1.1.1"
 
 vite@^6.3.6:
   version "6.4.1"

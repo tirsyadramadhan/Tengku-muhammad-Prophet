@@ -14,6 +14,7 @@ class DeliveryController extends Controller
 {
     public function index(Request $request)
     {
+        Delivery::syncAllInvoicedStatus();
         if ($request->ajax()) {
             // 1. Join with tbl_po to access PO fields for sorting/searching
             $data = Delivery::query()
@@ -46,7 +47,7 @@ class DeliveryController extends Controller
                 ->addColumn('status', function ($row) {
                     if ($row->delivered_status == 1) {
                         return '<span class="badge bg-label-success rounded-pill px-3 py-2">
-                        <i class="ri-checkbox-circle-fill me-1"></i> SECURELY ARRIVED
+                        <i class="ri-checkbox-circle-fill me-1"></i> Sudah Tiba Tujuan
                     </span>';
                     } else {
                         return '<div class="timer-wrapper" 
@@ -58,6 +59,20 @@ class DeliveryController extends Controller
                          </div>
                          <div class="small text-muted mt-1">Moving in Transit</div>
                     </div>';
+                    }
+                })
+                ->addColumn('invoiced_status', function ($row) {
+                    if ($row->invoiced_status == 1) {
+                        return '
+                        <span class="badge bg-label-success rounded-pill px-3 py-2">
+                            <i class="ri-checkbox-circle-fill me-1"></i> Sudah Di Invoice
+                        </span>';
+                    } else {
+                        return '
+                         <div class="badge bg-label-warning mb-1 d-inline-block px-2 rounded">
+                            <i class="ri-close-circle-line me-1"></i> Belum Di Invoice
+                         </div>
+                        ';
                     }
                 })
                 ->addColumn('action', function ($row) {
@@ -82,7 +97,7 @@ class DeliveryController extends Controller
         </button>
                 </div>';
                 })
-                ->rawColumns(['po_tracking', 'qty_delivered', 'status', 'action']) // 'action' removed
+                ->rawColumns(['po_tracking', 'qty_delivered', 'status', 'invoiced_status', 'action']) // 'action' removed
 
                 // 3. Sorting logic for custom columns
                 ->orderColumn('po_tracking', 'nama_barang $1') // sort by PO item name

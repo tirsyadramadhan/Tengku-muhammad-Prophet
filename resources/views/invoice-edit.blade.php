@@ -33,8 +33,9 @@
     <h5 class="mb-0">Ubah Data Invoice</h5>
   </div>
   <div class="card-body">
-    <form id="invoiceForm" action="{{ route('invoice.store') }}" method="POST">
+    <form id="invoiceForm" action="{{ route('invoice.update', $item->invoice_id) }}" method="POST">
       @csrf
+      @method('PUT')
 
       <div class="row">
         <!-- Pilih Pengiriman (Select2) -->
@@ -103,7 +104,7 @@
     $.noConflict();
 
     // Inisialisasi Select2
-    $('#delivery_select').select2({
+    $('#delivery_id').select2({
       theme: 'bootstrap-5',
       width: '100%',
       placeholder: '-- Pilih Pengiriman --',
@@ -157,13 +158,13 @@
       }
 
       // Pilih pengiriman
-      if (fieldId === 'delivery_select') {
+      if (fieldId === 'delivery_id') {
         isValid = value !== '';
         setValidity(isValid);
       }
-      // Tanggal Invoice
+      // Tanggal Invoice — on edit, allow existing past dates; just require a value
       else if (fieldId === 'tgl_invoice') {
-        isValid = value !== '' && new Date(value) >= new Date(new Date().toISOString().slice(0, 16));
+        isValid = value !== '';
         setValidity(isValid);
       }
       // Tanggal Jatuh Tempo
@@ -177,9 +178,12 @@
     }
 
     // Lampirkan event validasi
-    $('#delivery_select, #tgl_invoice, #due_date').on('change keyup blur', function() {
+    $('#delivery_id, #tgl_invoice, #due_date').on('change keyup blur', function() {
       validateField($(this));
     });
+
+    // Set min on due_date based on current invoice date on page load
+    updateDueDateMin();
 
     // --- Pengiriman form via AJAX dengan SweetAlert ---
     $('#invoiceForm').on('submit', function(e) {
@@ -187,7 +191,7 @@
 
       // Validasi semua field
       let allValid = true;
-      $('#delivery_select, #tgl_invoice, #due_date').each(function() {
+      $('#tgl_invoice, #due_date').each(function() {
         if (!validateField($(this))) allValid = false;
       });
 

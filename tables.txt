@@ -1,0 +1,83 @@
+CREATE TABLE IF NOT EXISTS `tbl_payment` (
+  `payment_id` bigint NOT NULL AUTO_INCREMENT,
+  `invoice_id` bigint NOT NULL,
+  `payment_date` datetime DEFAULT NULL,
+  `amount` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `metode_bayar` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bukti_bayar` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `input_by` bigint DEFAULT NULL,
+  `input_date` datetime DEFAULT CURRENT_TIMESTAMP,
+  `edit_by` bigint DEFAULT NULL,
+  `edit_date` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`payment_id`),
+  KEY `idx_payment_invoice` (`invoice_id`),
+  CONSTRAINT `fk_payment_invoice` FOREIGN KEY (`invoice_id`) REFERENCES `tbl_invoice` (`invoice_id`) ON DELETE RESTRICT
+)
+
+CREATE TABLE IF NOT EXISTS `tbl_invoice` (
+  `invoice_id` bigint NOT NULL AUTO_INCREMENT,
+  `delivery_id` bigint NOT NULL,
+  `nomor_invoice` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `tgl_invoice` datetime DEFAULT NULL,
+  `due_date` datetime DEFAULT NULL,
+  `status_invoice` tinyint DEFAULT '0' COMMENT '0: Unpaid, 1: Paid, 2: Cancelled',
+  `input_by` bigint DEFAULT NULL,
+  `input_date` datetime DEFAULT CURRENT_TIMESTAMP,
+  `edit_by` bigint DEFAULT NULL,
+  `edit_date` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`invoice_id`),
+  UNIQUE KEY `uk_nomor_invoice` (`nomor_invoice`),
+  KEY `idx_invoice_delivery` (`delivery_id`),
+  CONSTRAINT `fk_invoice_delivery` FOREIGN KEY (`delivery_id`) REFERENCES `tbl_delivery` (`delivery_id`) ON DELETE RESTRICT
+)
+
+CREATE TABLE IF NOT EXISTS `tbl_delivery` (
+  `delivery_id` bigint NOT NULL AUTO_INCREMENT,
+  `po_id` bigint NOT NULL,
+  `delivery_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `qty_delivered` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `delivery_time_estimation` datetime DEFAULT NULL,
+  `delivered_at` datetime DEFAULT NULL,
+  `delivered_status` tinyint NOT NULL DEFAULT '0' COMMENT '0: Pending, 1: Shipped, 2: Delivered',
+  `invoiced_status` tinyint NOT NULL DEFAULT '0' COMMENT '0: Uninvoiced, 1: Invoiced',
+  `input_by` bigint DEFAULT NULL,
+  `input_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `edit_by` bigint DEFAULT NULL,
+  `edit_date` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`delivery_id`),
+  UNIQUE KEY `uk_delivery_no` (`delivery_no`),
+  KEY `idx_delivery_po` (`po_id`),
+  KEY `fk_delivery_input` (`input_by`),
+  CONSTRAINT `fk_delivery_input` FOREIGN KEY (`input_by`) REFERENCES `tbl_user` (`user_id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_delivery_po` FOREIGN KEY (`po_id`) REFERENCES `tbl_po` (`po_id`) ON DELETE RESTRICT ON UPDATE CASCADE
+)
+
+CREATE TABLE IF NOT EXISTS `tbl_po` (
+  `po_id` bigint NOT NULL AUTO_INCREMENT,
+  `customer_id` bigint NOT NULL,
+  `no_po` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `nama_barang` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `tgl_po` datetime NOT NULL,
+  `periode_po` varchar(7) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Format: YYYY-MM',
+  `qty` bigint NOT NULL DEFAULT '0',
+  `harga` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `total` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `modal_awal` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `margin` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `margin_unit` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `tambahan_margin` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `status` tinyint NOT NULL DEFAULT '0' COMMENT '0: Open, 1: Delivered, 2: Invoiced, 3: Closed',
+  `input_by` bigint DEFAULT NULL,
+  `input_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `edit_by` bigint DEFAULT NULL,
+  `edit_date` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`po_id`),
+  UNIQUE KEY `uk_no_po` (`no_po`),
+  KEY `idx_customer` (`customer_id`),
+  KEY `idx_status` (`status`),
+  KEY `fk_po_input_user` (`input_by`),
+  KEY `idx_tgl_po` (`tgl_po`) USING BTREE,
+  CONSTRAINT `fk_po_customer` FOREIGN KEY (`customer_id`) REFERENCES `tbl_customer` (`id_cust`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_po_input_user` FOREIGN KEY (`input_by`) REFERENCES `tbl_user` (`user_id`) ON DELETE SET NULL
+)

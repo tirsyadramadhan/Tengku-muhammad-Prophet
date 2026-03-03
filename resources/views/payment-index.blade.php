@@ -3,13 +3,7 @@
 @section('title', 'Riwayat Pembayaran')
 
 @section('vendor-style')
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" />
-{{-- DataTables CSS --}}
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
-<link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
-
 <style>
-    /* Professional Dashboard Styling */
     .card-header-actions {
         display: flex;
         justify-content: space-between;
@@ -21,7 +15,6 @@
         padding: 0 1.5rem 1.5rem 1.5rem;
     }
 
-    /* Column Sizing & Styling */
     .col-no {
         width: 50px;
         text-align: center;
@@ -41,7 +34,6 @@
         min-width: 150px;
     }
 
-    /* DataTables Overrides for cleaner look */
     table.dataTable tbody tr:hover {
         background-color: rgba(105, 108, 255, 0.03) !important;
         transition: 0.2s;
@@ -59,7 +51,6 @@
         border-radius: 0.375rem;
     }
 
-    /* Method Pills */
     .method-pill {
         font-size: 0.7rem;
         font-weight: 700;
@@ -69,7 +60,6 @@
         letter-spacing: 0.5px;
     }
 
-    /* Summary Stat Cards */
     .stat-card {
         border: none;
         border-bottom: 3px solid #696cff;
@@ -94,7 +84,6 @@
 @section('content')
 <div class="container-xxl flex-grow-1 container-p-y">
 
-    {{-- Alert Messages --}}
     @if(session('success'))
     <div class="alert alert-success alert-dismissible" role="alert">
         {{ session('success') }}
@@ -156,7 +145,7 @@
                 </div>
                 <div>
                     <h5 class="mb-0">Buku Besar Pembayaran</h5>
-                    <small class="text-muted">Riwayat semua pembayaran masuk & penyelesaian</small>
+                    <small class="text-muted">Riwayat semua pembayaran masuk &amp; penyelesaian</small>
                 </div>
             </div>
             <div class="d-flex gap-2">
@@ -174,37 +163,27 @@
                         <th class="col-ref">Detail Referensi</th>
                         <th>Pelanggan</th>
                         <th class="text-end">Jumlah Bayar</th>
-                        <th class="ps-5">Tanggal & Metode</th>
+                        <th class="ps-5">Tanggal &amp; Metode</th>
+                        <th class="text-end">Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {{-- Data processed via Yajra DataTables --}}
+                    {{-- Filled by Yajra DataTables via AJAX --}}
                 </tbody>
             </table>
-        </div>
-
-        <div class="card-footer border-top bg-light-subtle d-flex justify-content-between align-items-center p-3">
-            <span class="text-muted small">Catatan Keuangan Terverifikasi</span>
-            <div class="d-flex align-items-center">
-                <span class="me-3 text-muted">Total Volume Halaman Ini:</span>
-                <span class="h5 mb-0 fw-bold text-primary" id="pageTotal">Calculating...</span>
-            </div>
         </div>
     </div>
 </div>
 @endsection
 
-@section('vendor-script')
-{{-- JQuery & DataTables JS --}}
-<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
-
+@section('page-script')
 <script>
-    $(document).ready(function() {
-        $.noConflict();
-
+    document.addEventListener("DOMContentLoaded", function() {
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
         var table = $('#paymentTable').DataTable({
             processing: true,
             serverSide: true,
@@ -232,40 +211,76 @@
                 },
                 {
                     data: 'tanggal_metode',
-                    name: 'payment_date', // Sort based on date
+                    name: 'payment_date',
                     className: 'ps-5'
+                },
+                {
+                    data: 'action',
+                    name: 'action',
+                    orderable: false,
+                    searchable: false,
+                    className: 'text-center'
                 }
             ],
             order: [
                 [4, 'desc']
-            ], // Default sort by Payment Date (index 4)
-            language: {
-                url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/id.json"
-            },
-            drawCallback: function(settings) {
-                var api = this.api();
-                var pageTotal = api.column(3, {
-                    page: 'current'
-                }).data().reduce(function(a, b) {
-                    // Convert to string to safely use .replace()
-                    var strA = String(a);
-                    var strB = String(b);
-                    // Remove HTML tags and non‑numeric characters, then parse as float
-                    var numA = parseFloat(strA.replace(/<[^>]*>/g, '').replace(/[^0-9.-]+/g, '')) || 0;
-                    var numB = parseFloat(strB.replace(/<[^>]*>/g, '').replace(/[^0-9.-]+/g, '')) || 0;
-                    return numA + numB;
-                }, 0);
-
-                // Format as IDR currency
-                var formatted = new Intl.NumberFormat('id-ID', {
-                    style: 'currency',
-                    currency: 'IDR',
-                    minimumFractionDigits: 0
-                }).format(pageTotal);
-
-                $('#pageTotal').html(formatted);
-            }
+            ],
         });
+
+        // ── 3. DELETE — Event delegation on tbody ─────────────────────────
+        // MUST use event delegation because DataTables re-renders rows on
+        // every page change, destroying any directly-bound listeners.
+        $('#paymentTable tbody').on('click', '.btn-delete-ajax', function() {
+            var deleteUrl = $(this).data('url'); // e.g. /payment/5
+            var $btn = $(this);
+
+            Swal.fire({
+                title: 'Hapus Pembayaran?',
+                text: 'Data pembayaran ini akan dihapus permanen. Tindakan ini tidak dapat dibatalkan!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ff3e1d',
+                cancelButtonColor: '#8592a3',
+                confirmButtonText: '<i class="ri-delete-bin-line me-1"></i> Ya, Hapus!',
+                cancelButtonText: 'Batal',
+                focusCancel: true,
+            }).then(function(result) {
+                if (!result.isConfirmed) return;
+
+                // Show loading state on the button
+                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+                $.ajax({
+                    url: deleteUrl,
+                    type: 'DELETE',
+                    success: function(response) {
+                        Swal.fire({
+                            title: 'Terhapus!',
+                            text: response.message ?? 'Pembayaran berhasil dihapus.',
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false,
+                        });
+
+                        // Reload DataTable to reflect the deletion
+                        table.ajax.reload(null, false);
+                    },
+                    error: function(xhr) {
+                        var msg = xhr.responseJSON?.message ?? 'Terjadi kesalahan. Coba lagi.';
+                        Swal.fire({
+                            title: 'Gagal!',
+                            text: msg,
+                            icon: 'error',
+                            confirmButtonColor: '#696cff',
+                        });
+
+                        // Restore button on failure
+                        $btn.prop('disabled', false).html('<i class="ri-delete-bin-line"></i>');
+                    }
+                });
+            });
+        });
+
     });
 </script>
 @endsection

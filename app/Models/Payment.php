@@ -57,6 +57,18 @@ class Payment extends Model
                 }
             }
         });
+
+        // In Payment boot() — add after the saved() hook
+        static::deleted(function ($model) {
+            if ($model->invoice) {
+                $model->invoice->syncInvoiceStatus();
+
+                $delivery = $model->invoice->delivery;
+                if ($delivery && $delivery->po) {
+                    $delivery->po->syncStatus();
+                }
+            }
+        });
     }
 
     // --- RELATIONSHIPS ---
@@ -100,5 +112,9 @@ class Payment extends Model
     public function editor()
     {
         return $this->belongsTo(User::class, 'edit_by', 'user_id');
+    }
+    public function input_user()
+    {
+        return $this->belongsTo(User::class, 'input_by', 'user_id');
     }
 }

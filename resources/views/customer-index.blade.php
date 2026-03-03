@@ -3,27 +3,7 @@
 @section('title', 'Customer Management')
 
 @section('vendor-style')
-<!-- DataTables CSS -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
-<!-- Remixicon -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css">
 <style>
-    /* Custom styling */
-    .table-responsive {
-        min-height: 400px;
-        border-radius: 0 0 8px 8px;
-    }
-
-    .table thead th {
-        background-color: #f8f9fa !important;
-        font-weight: 700;
-        color: #566a7f;
-        text-transform: uppercase;
-        font-size: 0.75rem;
-        letter-spacing: 1px;
-        border-top: none !important;
-    }
-
     .cust-avatar {
         width: 38px;
         height: 38px;
@@ -34,15 +14,6 @@
         font-weight: 700;
         font-size: 1rem;
         transition: 0.3s;
-    }
-
-    .table tbody tr:hover td {
-        filter: brightness(0.97);
-        transition: 0.2s;
-    }
-
-    .table tbody tr:hover .cust-avatar {
-        transform: scale(1.1);
     }
 
     .btn-icon {
@@ -108,39 +79,21 @@
             <thead>
                 <tr>
                     <th class="text-center">NO</th>
-                    <th class="text-center">UID</th>
                     <th>Customer Details</th>
                     <th>Registration Date</th>
                     <th class="text-center">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                <!-- Data diisi via DataTables AJAX -->
             </tbody>
         </table>
-    </div>
-
-    <div class="card-footer border-top bg-light-subtle d-flex justify-content-between align-items-center py-3">
-        <p class="mb-0 small text-muted">Total Active Customers: <span class="fw-bold text-primary" id="totalRecords">0</span></p>
-        <!-- Pagination akan ditangani DataTables -->
     </div>
 </div>
 @endsection
 
 @section('page-script')
-<!-- jQuery (sudah ada di layout? sebaiknya tambahkan jika belum) -->
-<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-<!-- DataTables JS -->
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-<!-- SweetAlert2 -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
 <script>
-    $(document).ready(function() {
-        $.noConflict();
-
-        // Inisialisasi DataTables
+    document.addEventListener("DOMContentLoaded", function() {
         var table = $('#customerTable').DataTable({
             processing: true,
             serverSide: true,
@@ -153,27 +106,8 @@
                     className: 'text-center'
                 },
                 {
-                    data: 'id_cust',
-                    name: 'id_cust',
-                    className: 'text-center'
-                },
-                {
                     data: 'cust_name',
                     name: 'cust_name',
-                    render: function(data, type, row) {
-                        // Warna avatar berdasarkan id_cust
-                        var colors = ['primary', 'success', 'warning', 'info', 'danger'];
-                        var color = colors[row.id_cust % 5];
-                        return '<div class="d-flex align-items-center">' +
-                            '<div class="cust-avatar bg-label-' + color + ' text-uppercase me-3 shadow-sm">' +
-                            data.charAt(0) +
-                            '</div>' +
-                            '<div>' +
-                            '<span class="fw-bold text-heading d-block">' + data + '</span>' +
-                            '<small class="text-muted">Verified Client</small>' +
-                            '</div>' +
-                            '</div>';
-                    }
                 },
                 {
                     data: 'input_date',
@@ -195,16 +129,9 @@
                     className: 'text-center'
                 }
             ],
-            language: {
-                url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/id.json" // Bahasa Indonesia
-            },
             order: [
                 [1, 'asc']
-            ], // Urut berdasarkan ID secara default
-            drawCallback: function(settings) {
-                // Update total records di footer
-                $('#totalRecords').text(settings.fnRecordsTotal());
-            }
+            ],
         });
 
         // Fungsi global untuk delete (dipanggil dari tombol dropdown)

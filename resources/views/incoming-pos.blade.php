@@ -1,90 +1,122 @@
 @extends('layouts/contentNavbarLayout')
 
-@section('title', 'Purchase Orders Management') {{-- Keep original title for browser tab --}}
+@section('title', 'Incoming Purchase Orders')
 
 @section('vendor-style')
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" />
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
-
 <style>
-    /* Dashboard Aesthetics */
-    .card-header-actions {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1.5rem;
-        background-color: #fff;
-    }
-
-    .table-container {
-        padding: 0;
-    }
-
-    /* Financial & Grouped Columns */
-    .col-po-info {
-        min-width: 150px;
-    }
-
-    .col-product {
-        min-width: 250px;
-    }
-
-    .col-qty {
-        min-width: 100px;
-    }
-
-    .col-money {
-        min-width: 140px;
-        text-align: right;
-        font-family: 'Public Sans', sans-serif;
-        font-weight: 600;
-        white-space: nowrap;
-    }
-
-    /* Subtle Column Highlighting */
-    .bg-financial {
-        background-color: #f8f9fa;
-    }
-
-    .bg-profit {
-        background-color: rgba(113, 221, 55, 0.04);
-    }
-
-    /* Row Hover Effects */
-    .table tbody tr:hover {
-        background-color: rgba(67, 89, 113, 0.04) !important;
-        transition: 0.2s;
-    }
-
-    /* Footer Totals Styling */
-    .table tfoot tr {
-        background-color: #f3f4f6;
-        border-top: 2px solid #dbdade;
-        font-weight: 800;
-        font-size: 0.95rem;
-    }
-
-    .table tfoot td {
-        padding-top: 1rem;
-        padding-bottom: 1rem;
-    }
-
-    /* Stat Cards */
     .stat-card {
         border: none;
         border-radius: 12px;
-        transition: all 0.3s ease;
         border-left: 4px solid transparent;
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
     }
 
     .stat-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10) !important;
     }
 
-    /* Custom Scrollbar for heavy tables */
+    .stat-card h4 {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        font-size: 1.15rem;
+        letter-spacing: -0.5px;
+    }
+
+    @media (max-width: 576px) {
+        .stat-card h4 {
+            font-size: 1rem;
+        }
+    }
+
+    /* ── Export Buttons ─────────────────────────────── */
+    .dt-buttons {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .dt-button {
+        display: inline-flex !important;
+        align-items: center;
+        gap: 5px;
+        padding: 0.40rem 0.85rem !important;
+        border-radius: 6px !important;
+        font-size: 0.80rem !important;
+        font-weight: 600 !important;
+        border: 1.5px solid !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        transition: all 0.2s ease !important;
+        cursor: pointer;
+        text-shadow: none !important;
+    }
+
+    .btn-export-copy {
+        color: #566a7f !important;
+        border-color: #dbdade !important;
+    }
+
+    .btn-export-csv {
+        color: #03c3ec !important;
+        border-color: #03c3ec !important;
+    }
+
+    .btn-export-excel {
+        color: #71dd37 !important;
+        border-color: #71dd37 !important;
+    }
+
+    .btn-export-print {
+        color: #696cff !important;
+        border-color: #696cff !important;
+    }
+
+    .btn-export-copy:hover {
+        background: #566a7f !important;
+        color: #fff !important;
+    }
+
+    .btn-export-csv:hover {
+        background: #03c3ec !important;
+        color: #fff !important;
+    }
+
+    .btn-export-excel:hover {
+        background: #71dd37 !important;
+        color: #fff !important;
+    }
+
+    .btn-export-print:hover {
+        background: #696cff !important;
+        color: #fff !important;
+    }
+
+    .dt-button:focus {
+        outline: none !important;
+        box-shadow: none !important;
+    }
+
+    /* ── Controls Bar ───────────────────────────────── */
+    .dt-controls-bar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #f0f0f0;
+        gap: 0.75rem;
+    }
+
+    .dt-controls-bar .dataTables_filter label,
+    .dt-controls-bar .dataTables_length label {
+        margin-bottom: 0;
+        font-size: 0.85rem;
+    }
+
+    /* ── Custom Scrollbar ───────────────────────────── */
     .table-responsive::-webkit-scrollbar {
-        height: 8px;
+        height: 6px;
     }
 
     .table-responsive::-webkit-scrollbar-thumb {
@@ -95,70 +127,19 @@
 @endsection
 
 @section('content')
-<style>
-    /* Custom Design Polish */
-    .stat-card {
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        border: none;
-        border-left: 5px solid;
-    }
-
-    .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08) !important;
-    }
-
-    /* Financial Column Highlights */
-    .bg-financial {
-        background-color: rgba(105, 108, 255, 0.05) !important;
-    }
-
-    /* Subtle Blue */
-    .bg-profit {
-        background-color: rgba(113, 221, 55, 0.05) !important;
-    }
-
-    /* Subtle Green */
-
-    #table-incoming thead th {
-        text-transform: uppercase;
-        font-size: 0.75rem;
-        letter-spacing: 1px;
-        font-weight: 700;
-    }
-
-    .table-container {
-        border-radius: 0.5rem;
-        overflow: hidden;
-    }
-
-    .stat-card h4 {
-        font-variant-numeric: tabular-nums;
-        white-space: nowrap;
-        /* Prevents the number from breaking into two lines */
-        font-size: 1.15rem;
-        /* Shrink slightly from default H4 (usually 1.5rem) */
-        letter-spacing: -0.5px;
-        /* Tighten characters slightly to save width */
-    }
-
-    /* Optional: Even smaller font on mobile devices */
-    @media (max-width: 576px) {
-        .stat-card h4 {
-            font-size: 1rem;
-        }
-    }
-</style>
-
 <div class="container-xxl flex-grow-1 container-p-y">
+
+    {{-- ── Page Title ────────────────────────────────── --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h4 class="fw-bold mb-1">PO Yang Akan Datang</h4>
+            <small class="text-muted">Kelola dan pantau semua Purchase Order masuk</small>
         </div>
     </div>
 
+    {{-- ── Stat Cards ────────────────────────────────── --}}
     <div class="row mb-4 g-4">
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
+        <div class="col-sm-6 col-lg-3">
             <div class="card stat-card shadow-sm" style="border-left-color: #696cff">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between">
@@ -173,7 +154,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
+        <div class="col-sm-6 col-lg-3">
             <div class="card stat-card shadow-sm" style="border-left-color: #71dd37">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between">
@@ -188,7 +169,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
+        <div class="col-sm-6 col-lg-3">
             <div class="card stat-card shadow-sm" style="border-left-color: #03c3ec">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between">
@@ -197,13 +178,13 @@
                             <small class="text-muted">Total Modal</small>
                         </div>
                         <div class="avatar bg-label-info p-2 rounded">
-                            <i class="ri-money-dollar-circle-line fs-3"></i>
+                            <i class="ri-bank-line fs-3"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
+        <div class="col-sm-6 col-lg-3">
             <div class="card stat-card shadow-sm" style="border-left-color: #71dd37">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between">
@@ -212,7 +193,7 @@
                             <small class="text-muted">Total Margin</small>
                         </div>
                         <div class="avatar bg-label-success p-2 rounded">
-                            <i class="ri-money-dollar-box-line fs-3"></i>
+                            <i class="ri-percent-line fs-3"></i>
                         </div>
                     </div>
                 </div>
@@ -222,11 +203,12 @@
 
     <div class="card shadow-sm border-0">
         <div class="card-header border-bottom d-flex justify-content-between align-items-center py-3 bg-white">
-            <h5 class="mb-0 fw-bold"><i class="ri-table-line me-2"></i>Data Incoming PO</h5>
-            <a href="{{ route('incoming-po.create') }}" class="btn btn-primary">
+            <h5 class="mb-0 fw-bold">
+                <i class="ri-table-line me-2 text-primary"></i>Data Incoming PO
+            </h5>
+            <a href="{{ route('incoming-po.create') }}" class="btn btn-primary btn-sm px-3">
                 <i class="ri-add-line me-1"></i> Buat Incoming PO
             </a>
-
         </div>
 
         <div class="table-responsive text-nowrap">
@@ -234,181 +216,208 @@
                 <thead class="table-light">
                     <tr>
                         <th class="text-center" style="width: 50px;">No</th>
-                        <th class="text-center">No. PO</th> {{-- Translated --}}
-                        <th class="text-center">Tanggal</th> {{-- Translated --}}
-                        <th class="text-center">Produk & Pelanggan</th> {{-- Translated --}}
-                        <th class="text-center">Qty</th> {{-- Could be "Jml", but "Qty" is common --}}
-                        <th class="text-center">Total Penjualan</th> {{-- Translated --}}
-                        <th class="text-center">Modal</th> {{-- Translated --}}
-                        <th class="text-center">Margin</th> {{-- Already Indonesian --}}
-                        <th class="text-center">Action</th>
+                        <th class="text-center">No. PO</th>
+                        <th class="text-center">Tanggal</th>
+                        <th class="text-center">Produk &amp; Pelanggan</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-end">Total Penjualan</th>
+                        <th class="text-end">Modal</th>
+                        <th class="text-end">Margin</th>
+                        <th class="text-center no-export">Aksi</th>
                     </tr>
                 </thead>
             </table>
         </div>
     </div>
+
 </div>
-@endsection
-@section('vendor-script')
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/countup.js/2.0.7/countUp.umd.min.js"></script>
 @endsection
 
 @section('page-script')
 <script>
-    jQuery(document).ready(function($) {
+    document.addEventListener("DOMContentLoaded", function() {
+
+        // ── CountUp Stats ─────────────────────────────────────────────
         function updateCardStats() {
-            $.ajax({
-                url: '/api/dashboard-stats', // The route we created in Step 2
-                method: 'GET',
-                success: function(data) {
-                    const moneyOptions = {
-                        startVal: 0, // <--- THIS FORCES IT TO START FROM ZERO
-                        prefix: 'Rp ',
-                        separator: '.',
-                        decimal: ',',
-                        duration: 3
-                    };
+            const moneyOpts = {
+                startVal: 0,
+                prefix: 'Rp ',
+                separator: '.',
+                decimal: ',',
+                duration: 3
+            };
+            const numOpts = {
+                startVal: 0,
+                duration: 3
+            };
 
-                    const numberOptions = {
-                        startVal: 0, // <--- THIS FORCES IT TO START FROM ZERO
-                        duration: 3
-                    }; // Animate each card
-                    // Initialize and start the animations
-                    const countIncoming = new CountUp('card-incoming', data.incoming, numberOptions);
-                    const countPrice = new CountUp('card-price', data.price, moneyOptions);
-                    const countCapital = new CountUp('card-capital', data.capital, moneyOptions);
-                    const countMargin = new CountUp('card-margin', data.margin, moneyOptions);
-
-                    // Handle potential errors (like if ID is missing) and start
-                    if (!countIncoming.error) countIncoming.start();
-                    if (!countPrice.error) countPrice.start();
-                    if (!countCapital.error) countCapital.start();
-                    if (!countMargin.error) countMargin.start();
+            const statsConfig = [{
+                    id: 'card-incoming',
+                    key: 'incoming',
+                    opts: numOpts
                 },
-                error: function(err) {
-                    console.error('Failed to fetch stats', err);
-                }
+                {
+                    id: 'card-price',
+                    key: 'price',
+                    opts: moneyOpts
+                },
+                {
+                    id: 'card-capital',
+                    key: 'capital',
+                    opts: moneyOpts
+                },
+                {
+                    id: 'card-margin',
+                    key: 'margin',
+                    opts: moneyOpts
+                },
+            ];
+
+            $.getJSON('/api/incomingPo-stats')
+                .done(data => {
+                    statsConfig.forEach(({
+                        id,
+                        key,
+                        opts
+                    }) => {
+                        const anim = new CountUp(id, data[key] || 0, opts);
+                        if (!anim.error) anim.start();
+                        else console.error(`CountUp error for ${id}:`, anim.error);
+                    });
+                })
+                .fail(err => console.error('Failed to fetch stats:', err));
+        }
+
+        updateCardStats();
+
+        // ── Rupiah Formatter ──────────────────────────────────────────
+        function rupiah(val) {
+            return 'Rp ' + parseFloat(val || 0).toLocaleString('id-ID', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
             });
         }
 
-        // 1. Trigger animation on initial page load
-        updateCardStats();
+        // ── Export: skip "No" (0) and "Aksi" (8) columns ─────────────
+        const exportColumns = [1, 2, 3, 4, 5, 6, 7];
 
-        $(document).on('click', '.btn-delete-ajax', function() {
-            let deleteUrl = $(this).data('url');
-            let poNo = $(this).data('po');
-
-            Swal.fire({
-                title: 'Hapus Data?',
-                text: `Apakah Anda yakin ingin menghapus PO #${poNo}?`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
-                confirmButtonText: 'Ya, Hapus!',
-                cancelButtonText: 'Batal',
-                showLoaderOnConfirm: true, // Shows a loading spinner on the button
-                preConfirm: () => {
-                    return $.ajax({
-                        url: deleteUrl,
-                        type: 'POST',
-                        data: {
-                            _method: 'DELETE',
-                            _token: '{{ csrf_token() }}'
-                        },
-                        success: function(response) {
-                            return response;
-                        },
-                        error: function(xhr) {
-                            // Pull the error message from the controller's JSON response
-                            let msg = xhr.responseJSON ? xhr.responseJSON.message : 'Terjadi kesalahan.';
-                            Swal.showValidationMessage(`Request failed: ${msg}`);
-                        }
-                    });
-                },
-                allowOutsideClick: () => !Swal.isLoading()
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire('Terhapus!', result.value.message, 'success');
-                    $('#table-incoming').DataTable().ajax.reload(null, false);
-                    updateCardStats();
-                }
-            });
-        });
+        // ── DataTable Init ────────────────────────────────────────────
         var dt_table = $('#table-incoming');
 
         if (dt_table.length) {
-            dt_table.DataTable({
+            var table = dt_table.DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: "{{ route('incomingPo') }}",
+
+                // dataSrc callback to capture totals from server response
+                ajax: {
+                    url: "{{ route('incomingPo') }}",
+                    dataSrc: function(json) {
+                        // Expects server to return: { data: [...], totals: { qty, total, modal_awal, margin } }
+                        if (json.totals) {
+                            $('#ft-qty').text(Number(json.totals.qty || 0).toLocaleString('id-ID'));
+                            $('#ft-total').text(rupiah(json.totals.total));
+                            $('#ft-modal').text(rupiah(json.totals.modal_awal));
+                            $('#ft-margin').text(rupiah(json.totals.margin));
+                        }
+                        return json.data;
+                    }
+                },
+
                 columns: [{
                         data: 'DT_RowIndex',
                         name: 'DT_RowIndex',
                         orderable: false,
                         searchable: false,
-                        className: 'text-center fw-medium text-muted'
+                        className: 'text-center fw-medium'
                     },
                     {
                         data: 'no_po',
-                        name: 'no_po'
+                        name: 'no_po',
+                        className: 'text-center fw-medium'
                     },
                     {
                         data: 'tgl_po',
-                        name: 'tgl_po'
+                        name: 'tgl_po',
+                        className: 'text-center fw-medium'
                     },
                     {
                         data: 'product_customer',
-                        name: 'nama_barang'
+                        name: 'nama_barang',
+                        className: 'text-center fw-medium'
                     },
                     {
                         data: 'qty',
                         name: 'qty',
-                        className: 'text-center'
+                        className: 'text-center fw-medium'
                     },
                     {
                         data: 'total',
                         name: 'total',
-                        className: 'text-end fw-bold bg-financial'
+                        className: 'text-center fw-medium'
                     },
                     {
                         data: 'modal_awal',
                         name: 'modal_awal',
-                        className: 'text-end text-muted'
+                        className: 'text-center fw-medium'
                     },
                     {
                         data: 'margin',
                         name: 'margin',
-                        className: 'text-end fw-bold text-success bg-profit'
+                        className: 'text-center fw-medium'
                     },
                     {
                         data: 'action',
                         name: 'action',
                         orderable: false,
                         searchable: false,
-                        className: 'text-center'
+                        className: 'text-center fw-medium'
                     }
                 ],
+
                 order: [
                     [2, 'desc']
                 ],
-                displayLength: 10,
-                dom: '<"card-body d-flex flex-column flex-md-row justify-content-between align-items-center pt-0"<"me-md-2"l><"dt-action-buttons text-end"f>>t<"card-body d-flex flex-column flex-md-row justify-content-between"<"me-md-2"i><"p-0"p>>',
-                language: {
-                    url: "/vendor/datatables/id.json", // Indonesian language pack
-                    processing: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Memuat...</span></div>',
-                    search: "",
-                    searchPlaceholder: "Cari...", // Indonesian placeholder
-                    sLengthMenu: "_MENU_",
-                    paginate: {
-                        next: '<i class="ri-arrow-right-s-line"></i>',
-                        previous: '<i class="ri-arrow-left-s-line"></i>'
+                pageLength: 10, // Fix: original used wrong key "displayLength"
+            });
+
+            // ── Delete Handler ─────────────────────────────────────────
+            $(document).on('click', '.btn-delete-ajax', function() {
+                const deleteUrl = $(this).data('url');
+                const poNo = $(this).data('po');
+
+                Swal.fire({
+                    title: 'Hapus Data?',
+                    text: `Apakah Anda yakin ingin menghapus PO #${poNo}?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, Hapus!',
+                    cancelButtonText: 'Batal',
+                    showLoaderOnConfirm: true,
+                    preConfirm: () => {
+                        return $.ajax({
+                            url: deleteUrl,
+                            type: 'POST',
+                            data: {
+                                _method: 'DELETE',
+                                _token: '{{ csrf_token() }}'
+                            },
+                            error: function(xhr) {
+                                const msg = xhr.responseJSON?.message ?? 'Terjadi kesalahan.';
+                                Swal.showValidationMessage(`Request failed: ${msg}`);
+                            }
+                        });
+                    },
+                    allowOutsideClick: () => !Swal.isLoading()
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        Swal.fire('Terhapus!', result.value.message, 'success');
+                        table.ajax.reload(null, false);
+                        updateCardStats();
                     }
-                },
+                });
             });
         }
     });
