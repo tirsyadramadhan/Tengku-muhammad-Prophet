@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\InvestasiExport;
 use App\Models\Investasi;
 use App\Models\Po;
 use App\Models\Margin;
@@ -13,61 +14,131 @@ use Illuminate\Support\Facades\Route;
 use Carbon\Carbon;
 use App\Imports\InvestasiImport;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Auth;
 
 class InvestasiController extends Controller
 {
-    // ============================================================
-    // REPLACE your entire index() method with this
-    // ============================================================
-
     public function index(Request $request)
     {
         if ($request->ajax()) {
             $investments = Investasi::get();
+            $user = Auth::user();
 
-            return DataTables::of($investments)
+            $table = DataTables::of($investments)
                 ->addIndexColumn()
+                ->addColumn('investasi_details', function ($row) {
+                    $fmt = fn($val) => 'Rp ' . number_format($val, 0, ',', '.');
 
-                // ── MONEY COLUMNS ───────────────────────────────────────
-                ->editColumn('modal_setor_awal', fn($inv) =>
-                'Rp ' . number_format($inv->modal_setor_awal, 0, ',', '.'))
+                    $modal_setor_awal  = $fmt($row->modal_setor_awal);
+                    $modal_po_baru     = $fmt($row->modal_po_baru);
+                    $margin            = $fmt($row->margin);
+                    $pencairan_modal   = $fmt($row->pencairan_modal);
+                    $margin_cair       = $fmt($row->margin_cair);
+                    $pengembalian_dana = $fmt($row->pengembalian_dana);
+                    $dana_tersedia     = $fmt($row->dana_tersedia);
+                    $tgl               = Carbon::parse($row->tgl_investasi)->toIndonesianRelative();
+                    $colorClass = fn($val) => ($val < 0)
+                        ? 'text-danger'
+                        : 'text-success';
 
-                ->editColumn('modal_po_baru', fn($inv) =>
-                'Rp ' . number_format($inv->modal_po_baru, 0, ',', '.'))
+                    return <<<HTML
+                        <div class="card" style="
+                            width: 260px;
+                            background: #0f172a;
+                            border: 1px solid #1e3a5f;
+                            border-radius: 10px;
+                            overflow: hidden;
+                            font-family: 'Segoe UI', sans-serif;
+                            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                        ">
+                            <!-- Header -->
+                            <div style="
+                                background: linear-gradient(135deg, #1e40af, #0ea5e9);
+                                padding: 8px 12px;
+                                font-size: 11px;
+                                font-weight: 700;
+                                color: #fff;
+                                letter-spacing: 0.08em;
+                                text-transform: uppercase;
+                            ">
+                                Detail Investasi
+                            </div>
 
-                ->editColumn('margin', fn($inv) =>
-                '<span style="color:#2e7d32; font-weight:600;">+Rp '
-                    . number_format($inv->margin, 0, ',', '.')
-                    . '</span>')
+                            <!-- Rows -->
+                            <div style="padding: 6px 0;">
 
-                ->editColumn('pencairan_modal', fn($inv) =>
-                'Rp ' . number_format($inv->pencairan_modal, 0, ',', '.'))
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px; border-bottom: 1px solid #1e293b;">
+                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Modal Setor Awal</span>
+                                    <span class="{$colorClass($row->modal_setor_awal)}" style="font-size:11px; font-weight:600; white-space:nowrap;">{$modal_setor_awal}</span>
+                                </div>
 
-                ->editColumn('margin_cair', fn($inv) =>
-                '<span style="color:#ff3e1d; font-weight:600;">-Rp '
-                    . number_format($inv->margin_cair, 0, ',', '.')
-                    . '</span>')
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px; border-bottom: 1px solid #1e293b;">
+                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Modal PO Baru</span>
+                                    <span class="{$colorClass($row->modal_po_baru)}" style="font-size:11px; font-weight:600; white-space:nowrap;">{$modal_po_baru}</span>
+                                </div>
 
-                ->editColumn('pengembalian_dana', function ($inv) {
-                    $color = $inv->pengembalian_dana >= 0 ? '#696cff' : '#ff3e1d';
-                    return '<span style="color:' . $color . '; font-weight:800;">'
-                        . 'Rp ' . number_format($inv->pengembalian_dana, 0, ',', '.')
-                        . '</span>';
-                })
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px; border-bottom: 1px solid #1e293b;">
+                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Margin</span>
+                                    <span class="{$colorClass($row->margin)}" style="font-size:11px; font-weight:600; white-space:nowrap;">{$margin}</span>
+                                </div>
 
-                ->editColumn('dana_tersedia', function ($inv) {
-                    $color = $inv->dana_tersedia >= 0 ? '#696cff' : '#ff3e1d';
-                    return '<span style="color:' . $color . '; font-weight:800;">'
-                        . 'Rp ' . number_format($inv->dana_tersedia, 0, ',', '.')
-                        . '</span>';
-                })
-                ->rawColumns([
-                    'margin',
-                    'margin_cair',
-                    'pengembalian_dana',
-                    'dana_tersedia',
-                ])
-                ->make(true);
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px; border-bottom: 1px solid #1e293b;">
+                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Pencairan Modal</span>
+                                    <span class="{$colorClass($row->pencairan_modal)}" style="font-size:11px; font-weight:600; white-space:nowrap;">{$pencairan_modal}</span>
+                                </div>
+
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px; border-bottom: 1px solid #1e293b;">
+                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Margin Cair</span>
+                                    <span class="{$colorClass($row->margin_cair)}" style="font-size:11px; font-weight:600; white-space:nowrap;">{$margin_cair}</span>
+                                </div>
+
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px; border-bottom: 1px solid #1e293b;">
+                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Pengembalian Dana</span>
+                                    <span class="{$colorClass($row->pengembalian_dana)}" style="font-size:11px; font-weight:600; white-space:nowrap;">{$pengembalian_dana}</span>
+                                </div>
+
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px;">
+                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Dana Tersedia</span>
+                                    <span class="{$colorClass($row->dana_tersedia)}" style="font-size:12px; font-weight:700; white-space:nowrap;">{$dana_tersedia}</span>
+                                </div>
+
+                            </div>
+
+                            <!-- Footer -->
+                            <div style="
+                                background: #1e293b;
+                                padding: 6px 12px;
+                                font-size: 10px;
+                                color: #fff;
+                                display: flex;
+                                gap: 5px;
+                                flex-direction: column;
+                            ">
+                                <span class="badge bg-info" style="width: fit-content;">{$row->tgl_investasi}</span>
+                                <span class="badge bg-primary" style="width: fit-content;">{$tgl}</span>
+                            </div>
+                        </div>
+                        HTML;
+                });
+
+            $table->addColumn('action', function ($inv) {
+                $user = Auth::user();
+
+                if ($user && $user->role_id === 2) {
+                    return ''; // return empty for role 2
+                }
+
+                $deleteUrl = Route::has('investments.destroy') ? route('investments.destroy', $inv->id_investasi) : '#';
+                return '
+                    <button type="button" class="btn btn-sm btn-icon btn-label-danger btn-delete" 
+                        data-url="' . $deleteUrl . '" 
+                        title="Delete">
+                        <i class="ri-delete-bin-line"></i>
+                    </button>
+                    ';
+            });
+            $rawColumns = ['investasi_details', 'action'];
+            return $table->rawColumns($rawColumns)->make(true);
         }
 
         // ── STAT CARD TOTALS ────────────────────────────────────────────
@@ -140,15 +211,6 @@ class InvestasiController extends Controller
 
         try {
             DB::beginTransaction();
-            $marginDiterima = Po::where('status', 7)->sum('margin');
-            $totalMargin = Po::where('status', '!=', 0)->sum('margin');
-            Margin::query()->update([
-                'margin_tersedia' => $totalMargin
-                    - $marginDiterima,
-                'margin_diterima' => $marginDiterima,
-                'investasi_dikembalikan' => - (Investasi::sum('modal_setor_awal') - Investasi::sum('modal_po_baru'))
-            ]);
-
             // --- 1. Determine base values (positive sums) ---
             // Modal Setor
             $valSetor = 0;
@@ -170,7 +232,7 @@ class InvestasiController extends Controller
                 }
             }
 
-            // Total Margin
+            // Margin
             $valMargin = 0;
             if ($request->mode_margin === 'manual') {
                 $valMargin = (float) $request->manual_total_margin;
@@ -196,6 +258,8 @@ class InvestasiController extends Controller
 
             // --- 4. User manual inputs (already signed by frontend toggles) ---
             $pencairan = (float) ($request->pencairan_modal ?? 0);
+            $margin_cair = (float) ($request->margin_cair ?? 0);
+            $pengembalian_dana = $pencairan + $margin_cair;
 
             // 2. CHANGE LOGIC: Sum the array values
             // If it's an array, sum it. If null, use 0.
@@ -209,23 +273,14 @@ class InvestasiController extends Controller
                 'tgl_investasi'    => Carbon::now(),
                 'modal_setor_awal' => $valSetor,
                 'modal_po_baru'    => $valPoBaru,
-                'total_margin'     => $valMargin,
+                'margin'     => $valMargin,
                 'pencairan_modal'  => $pencairan,
-                'penarikan'        => $penarikan,
-                'dana_ditransfer'        => $penarikan,
+                'margin_cair'        => $margin_cair,
+                'pengembalian_dana'        => $pengembalian_dana,
                 'dana_tersedia'    => $danaTersedia,
             ]);
 
-            // --- 7. Attach POs to Pivot ---
-            $allIds = array_unique(array_merge(
-                $request->ids_setor_awal ?? [],
-                $request->ids_po_baru ?? [],
-                $request->ids_margin ?? []
-            ));
-
-            if (!empty($allIds)) {
-                $investasi->pos()->sync($allIds);
-            }
+            $this->logCreate($investasi);
 
             DB::commit();
 
@@ -239,6 +294,13 @@ class InvestasiController extends Controller
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
+
+    public function export()
+    {
+        $this->logExport();
+        return Excel::download(new InvestasiExport, 'investasi.xlsx');
+    }
+
     public function import(Request $request)
     {
         $request->validate([
@@ -247,6 +309,7 @@ class InvestasiController extends Controller
 
         try {
             Excel::import(new InvestasiImport, $request->file('file'));
+            $this->logImport();
             return response()->json(['success' => true, 'message' => 'Data berhasil diimport.']);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -256,5 +319,47 @@ class InvestasiController extends Controller
     public function importForm()
     {
         return view("investasi-import");
+    }
+
+    public function destroy($id_investasi)
+    {
+        try {
+            $investasi = Investasi::findOrFail($id_investasi);
+
+            $this->logDelete($investasi, $investasi, 'Investasi dengan dana Rp ' . number_format($investasi->dana_tersedia, 0, ',', '.') . ' di hapus');
+
+            $investasi->delete();
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Investasi berhasil di hapus'
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Terjadi kesalahan sistem.'
+            ], 500);
+        }
+    }
+
+    public function getStats()
+    {
+        $totalMargin      = Investasi::sum('margin');
+        $totalModalSetor  = Investasi::sum('modal_setor_awal');
+        $totalPenarikan   = Investasi::sum('pengembalian_dana');
+        $totalModalPoBaru = Investasi::sum('modal_po_baru');
+        $investasi = Investasi::orderBy('id_investasi', 'desc')->first();
+        $danaTersedia = 0;
+        if ($investasi) {
+            $danaTersedia = $investasi->dana_tersedia;
+        }
+        return response()->json([
+            'totalMargin'      => (float) $totalMargin,
+            'totalModalSetor'  => (float) $totalModalSetor,
+            'totalModalPoBaru' => (float) $totalModalPoBaru,
+            'totalPenarikan'   => (float) $totalPenarikan,
+            'danaTersedia'     => (float) $danaTersedia,
+        ]);
     }
 }

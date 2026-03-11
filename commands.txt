@@ -1,0 +1,118 @@
+update method must match store method logic for updating Payment
+
+store method:
+
+public function store(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'invoice_id'   => 'required|exists:tbl_invoice,invoice_id|unique:tbl_payment,invoice_id',
+        'payment_date' => 'required|date',
+        'amount'       => 'required|numeric|min:0',
+        'metode_bayar' => 'required|string',
+        'pay_now'      => 'nullable|in:0,1',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['errors' => $validator->errors()], 422);
+    }
+
+    try {
+        $invoice  = \App\Models\Invoice::findOrFail($request->invoice_id);
+        $payNow   = (int) $request->input('pay_now', 0) === 1;
+        $status   = $payNow ? 1 : 0;
+        $paidDate = $payNow ? now()->toDateString() : null;
+
+        DB::transaction(function () use ($request, $invoice, $status, $paidDate, $payNow) {
+            $payment = Payment::create([
+                'invoice_id'              => $invoice->invoice_id,
+                'amount'                  => $request->amount,
+                'metode_bayar'            => $request->metode_bayar,
+                'payment_date_estimation' => $request->payment_date, // form field → correct column
+                'payment_date'            => $paidDate,              // only set if paying now
+                'payment_status'          => $status,
+                'input_by'                => Auth::id(),
+                'input_date'              => now(),
+            ]);
+
+            // only mark invoice as paid if paying right now
+            if ($payNow == 1) {
+                $invoice->update(['status_invoice' => 1]);
+            }
+
+            $this->logCreate(
+                $payment,
+                'Payment ditambahkan ke invoice ' . $invoice->nomor_invoice .
+                    ' yang terhubung ke delivery ' . $invoice->delivery->delivery_no .
+                    ' dengan PO ' . $invoice->delivery->po->no_po .
+                    ' (' . $invoice->delivery->po->nama_barang . ')'
+            );
+        });
+
+        if ($invoice->po) {
+            $invoice->po->syncStatus();
+        }
+
+        return response()->json([
+            'success'      => true,
+            'message'      => 'Pembayaran berhasil direkam.',
+            'redirect_url' => route('payment.index'),
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
+        ], 500);
+    }
+}
+
+update method:
+
+public function update(Request $request, Payment $payment)
+{
+    $validated = $request->validate([
+        'invoice_id'   => 'required|exists:tbl_invoice,invoice_id',
+        'amount'       => 'required|numeric|min:1',
+        'metode_bayar' => 'required|string|max:100',
+        'payment_date' => 'required|date',
+    ]);
+
+    try {
+        // 1. Grab the OLD invoice before we change anything
+        $oldInvoice  = $payment->invoice;
+        $oldDelivery = $oldInvoice?->delivery;
+        $oldPo       = $oldDelivery?->po;
+
+        $oldPayment = $payment->toArray();
+
+        // 2. Save updated payment
+        $payment->update($validated);
+
+        $newPayment = $payment->fresh();
+
+        $this->logUpdate($newPayment, $oldPayment, 'Payment dengan invoice ' . $payment->invoice->nomor_invoice . ' yang terhubung ke delivery ' . $payment->invoice->delivery->delivery_no . ' dengan PO ' . $payment->invoice->delivery->po->no_po . ' (' . $payment->invoice->delivery->po->nama_barang . ') ' . ' Di update');
+
+        // 3. If the invoice_id CHANGED, reverse the old invoice back to Unpaid
+        if ($oldInvoice && $oldInvoice->invoice_id != $validated['invoice_id']) {
+            $oldInvoice->update(['status_invoice' => 0]);
+            $oldPo?->syncStatus();
+        }
+
+        // 4. Mark the NEW (or same) invoice as Paid and re-sync its PO
+        $newInvoice = $payment->fresh()->invoice;
+        if ($newInvoice) {
+            $newInvoice->update(['status_invoice' => 1]);
+            $newInvoice->delivery?->po?->syncStatus();
+        }
+
+        return response()->json([
+            'success'      => true,
+            'message'      => 'Pembayaran berhasil diperbarui.',
+            'redirect_url' => route('payment.index'),
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Gagal memperbarui: ' . $e->getMessage(),
+        ], 500);
+    }
+}

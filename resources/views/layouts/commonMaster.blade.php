@@ -16,6 +16,8 @@
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{{ asset('assets/img/favicon/favicon.ico') }}" />
 
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
     <!-- Include Styles -->
     @include('layouts/sections/styles')
 

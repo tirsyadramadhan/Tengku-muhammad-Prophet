@@ -1,6 +1,11 @@
 @php
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Route;
+$defaultAvatar = public_path('defaults/default-avatar.jpg');
+$picturePath = Auth::user()->profile_picture
+? public_path(Auth::user()->profile_picture)
+: $defaultAvatar;
+
+$profilePic = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($picturePath));
 @endphp
 
 <!--  Brand demo (display only for navbar-full and hide on below xl) -->
@@ -23,20 +28,12 @@ use Illuminate\Support\Facades\Route;
 @endif
 
 <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-    <!-- Search -->
-    <div class="navbar-nav align-items-center">
-        <div class="nav-item d-flex align-items-center">
-            <i class="icon-base ri ri-search-line icon-lg lh-0"></i>
-            <input type="text" class="form-control border-0 shadow-none" placeholder="Search..." aria-label="Search...">
-        </div>
-    </div>
-    <!-- /Search -->
     <ul class="navbar-nav flex-row align-items-center ms-auto">
         <!-- User -->
         <li class="nav-item navbar-dropdown dropdown-user dropdown">
             <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown">
                 <div class="avatar avatar-online">
-                    <img src="{{ asset('assets/img/avatars/1.png') }}" alt="alt" class="rounded-circle" />
+                    <img src="{{ $profilePic }}" alt="alt" class="rounded-circle" />
                 </div>
             </a>
             <ul class="dropdown-menu dropdown-menu-end">
@@ -45,7 +42,7 @@ use Illuminate\Support\Facades\Route;
                         <div class="d-flex">
                             <div class="flex-shrink-0 me-3">
                                 <div class="avatar avatar-online">
-                                    <img src="{{ asset('assets/img/avatars/1.png') }}" alt="alt" class="w-px-40 h-auto rounded-circle" />
+                                    <img src="{{ $profilePic }}" alt="alt" class="w-px-40 h-auto rounded-circle" />
                                 </div>
                             </div>
                             <div class="flex-grow-1">
@@ -59,14 +56,9 @@ use Illuminate\Support\Facades\Route;
                     <div class="dropdown-divider my-1"></div>
                 </li>
                 <li>
-                    <a class="dropdown-item" href="javascript:void(0);">
+                    <a class="dropdown-item" href="{{ route('users.profile', Auth::id()) }}">
                         <i class="icon-base ri ri-user-3-line icon-md me-3"></i>
                         <span>My Profile</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="dropdown-item" href="javascript:void(0);">
-                        <i class="icon-base ri ri-settings-4-line icon-md me-4"></i><span>Settings</span>
                     </a>
                 </li>
 

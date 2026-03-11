@@ -16,6 +16,8 @@ class Payment extends Model
     protected $fillable = [
         'invoice_id',   // Foreign key to tbl_invoice
         'payment_date',
+        'payment_date_estimation',
+        'payment_status',
         'amount',
         'metode_bayar',
         'bukti_bayar',

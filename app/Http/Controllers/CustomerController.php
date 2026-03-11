@@ -24,7 +24,7 @@ class CustomerController extends Controller
                                     <i class="ri-more-2-fill fs-5"></i>
                                 </button>
                                 <div class="dropdown-menu">
-                                    <a class="dropdown-item" href="' . route('customer.edit', $row->id_cust) . '">
+                                    <a class="dropdown-item" href="' . route('customers.edit', $row->id_cust) . '">
                                         <i class="ri-pencil-line me-2"></i> Edit
                                     </a>
                                     <a class="dropdown-item text-danger" href="javascript:void(0);" onclick="deleteCustomer(' . $row->id_cust . ')">
@@ -54,31 +54,17 @@ class CustomerController extends Controller
     // Save new customer
     public function store(Request $request)
     {
-        try {
-            Customer::create([
-                'cust_name'  => $request->cust_name,
-                'input_by'   => Auth::id(),
-                'input_date' => now()
-            ]);
+        $request->validate([
+            'cust_name' => 'required|min:3|max:100',
+        ]);
 
-            if ($request->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Customer created!',
-                    'redirect_url' => route('customer.index')
-                ]);
-            }
+        Customer::create($request->only('cust_name'));
 
-            return redirect()->route('customer.index')->with('success', 'Customer created!');
-        } catch (\Exception $e) {
-            if ($request->ajax()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to create customer: ' . $e->getMessage()
-                ], 500);
-            }
-            return back()->with('error', 'Failed to create customer.');
-        }
+        return response()->json([
+            'success' => true,
+            'message' => 'Customer berhasil disimpan.',
+            'redirect' => route('customers.index'),
+        ]);
     }
 
     // Show form to edit existing customer
@@ -91,18 +77,41 @@ class CustomerController extends Controller
     // Update existing customer
     public function update(Request $request, $id)
     {
-        $item = Customer::findOrFail($id);
-        $item->update([
-            'cust_name' => $request->cust_name,
-            'edit_by'   => Auth::id(),
-            'edit_date' => now()
-        ]);
-        return redirect()->route('customer.index')->with('success', 'Customer updated!');
+        try {
+            $item = Customer::findOrFail($id);
+            $oldCustomer = clone $item;
+
+            $item->update([
+                'cust_name' => $request->cust_name,
+                'edit_by'   => Auth::id(),
+                'edit_date' => now()
+            ]);
+
+            $this->logUpdate($item, $oldCustomer, 'Di ubah Customer ' . $oldCustomer->cust_name . ' menjadi ' . $item->cust_name);
+
+            return response()->json([
+                'success'      => true,
+                'message'      => 'Customer berhasil diperbarui!',
+                'redirect_url' => route('customers.index')
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Customer tidak ditemukan!'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memperbarui customer: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     // Delete customer
     public function destroy($id)
     {
+        $customer = Customer::findOrFail($id);
+        $this->logDelete($customer, $customer, 'Di hapus Customer ' . $customer->cust_name);
         Customer::destroy($id);
         return response()->json(['success' => true, 'message' => 'Customer deleted!']);
     }

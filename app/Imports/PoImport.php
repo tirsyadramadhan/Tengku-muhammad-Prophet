@@ -6,14 +6,11 @@ use App\Models\Po;
 use App\Models\Delivery;
 use App\Models\Invoice;
 use App\Models\Payment;
-use App\Models\Investasi;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
-use Carbon\Carbon;
-use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class PoImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
 {
@@ -24,9 +21,8 @@ class PoImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
         $statusMap = [
             'Incoming'  => 0,
             'Open'      => 1,
-            // Add other statuses if needed, e.g.:
-            // 'Delivered' => 2,
-            // 'Close'     => 3,
+            'Delivered' => 7,
+            'Close'     => 8
         ];
 
         // Group rows by no_po to sum quantities and margins
@@ -39,13 +35,8 @@ class PoImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
             $totalQty = $poRows->sum('qty');
             $totalMargin = $poRows->sum('margin');
 
-            // Parse dates only if they exist
-            $rawDueDate = !empty($firstRow['invoice_due_60_days'])
-                ? $firstRow['invoice_due_60_days']
-                : $firstRow['invoice_due_30_days'];
-
-            $dueDate = !empty($rawDueDate)
-                ? \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($rawDueDate)
+            $dueDate = !empty($firstRow['payment_date'])
+                ? \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($firstRow['payment_date'])
                 : null;
 
             // Determine the integer status value from the first row's status string
@@ -94,50 +85,57 @@ class PoImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
                     continue;
                 }
 
-                // Parse delivered_at if present
-                $dateValue = !empty($row['delivered_at'])
-                    ? \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($row['delivered_at'])
-                    : null;
-
-                // Create Delivery
+                // Create Delivery for PO
                 $delivery = null;
                 if (!empty($row['delivered'])) {
                     $delivery = Delivery::create([
                         'delivery_no'              => $deliveryNo,
                         'po_id'                     => $po->po_id,
                         'qty_delivered'             => $row['delivered'],
-                        'delivery_time_estimation'  => $dateValue,
-                        'delivered_at'               => $dateValue,
+                        'delivery_time_estimation'  => \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($row['delivered_at']),
+                        'delivered_at'               => \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($row['delivered_at']),
                         'delivered_status'           => 1,
                         'invoiced_status'            => 1,
                         'input_by'                   => Auth::id() ?? 1,
                     ]);
                 }
 
-                // Create Invoice and possibly Payment
+                // Create Invoice for Delivery
+                $invoice = null;
                 if (!empty($row['invoiced_at']) && $delivery) {
-                    $invoicedAt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($row['invoiced_at']);
-
                     $invoice = Invoice::create([
                         'nomor_invoice'  => $nomorInvoice,
                         'delivery_id'    => $delivery->delivery_id,
-                        'tgl_invoice'    => $invoicedAt,
+                        'tgl_invoice'    => \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($row['invoiced_at']),
                         'due_date'       => $dueDate,
-                        'status_invoice' => 1,
+                        'status_invoice' => 0,
                         'input_by'       => Auth::id(),
                     ]);
+                }
 
-                    // Payment only for "Close" status
-                    if ($isClosed) {
-                        Payment::create([
-                            'invoice_id'   => $invoice->invoice_id,
-                            'payment_date' => $dueDate,
-                            'amount'       => $row['total'],
-                            'description'  => $row['catatan'],
-                            'metode_bayar' => "Tunai",
-                            'bukti_bayar'  => "Tidak Ada",
-                            'input_by'     => Auth::id(),
-                        ]);
+                // Create Payment for Invoice
+                $payment = null;
+                if (!empty($row['payment_date']) && $invoice && ($isClosed || $isDelivered)) {
+
+                    $estimationDate = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($row['payment_date']);
+
+                    // Close = paid, Delivered = still waiting
+                    $paymentStatus = $isClosed ? 1 : 0;
+
+                    $payment = Payment::create([
+                        'invoice_id'              => $invoice->invoice_id,
+                        'payment_date'            => null,
+                        'amount'                  => $row['total'],
+                        'description'             => $row['catatan'],
+                        'metode_bayar'            => null,
+                        'bukti_bayar'             => null,
+                        'payment_status'          => $paymentStatus,
+                        'payment_date_estimation' => $estimationDate,
+                        'input_by'                => Auth::id(),
+                    ]);
+
+                    if ($payment->payment_status === 1) {
+                        $invoice->update(['status_invoice' => 1]);
                     }
                 }
             }

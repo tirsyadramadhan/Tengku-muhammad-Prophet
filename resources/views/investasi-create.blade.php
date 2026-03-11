@@ -37,8 +37,6 @@
                 <h5 class="card-header">New Investment Recap</h5>
                 <div class="card-body">
                     <form id="investasiForm" action="{{ route('investments.store') }}" method="POST">
-                        @csrf
-
                         <input type="hidden" name="mode_setor" id="mode_setor" value="auto">
                         <input type="hidden" name="mode_po_baru" id="mode_po_baru" value="auto">
                         <input type="hidden" name="mode_margin" id="mode_margin" value="auto">
@@ -106,7 +104,7 @@
 
                         <div class="mb-4 input-group-wrapper">
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label mb-0">Total Margin</label>
+                                <label class="form-label mb-0">Margin</label>
                                 <button type="button" class="btn btn-sm btn-outline-danger ms-2 toggle-sign"
                                     data-target="margin"
                                     style="padding: 0.1rem 0.5rem; font-size: 0.75rem;">
@@ -144,6 +142,13 @@
                                 </div>
                             </div>
                             <div class="col-md-6 mb-3">
+                                <label class="form-label">Margin Cair</label>
+                                <div class="input-group">
+                                    <button class="btn btn-outline-secondary toggle-simple" type="button" onclick="flipValue('#margin_cair')">(-)</button>
+                                    <input type="number" step="1000" class="form-control calc-trigger" name="margin_cair" id="margin_cair" value="0">
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">TOTAL DANA DI TRANSFER</label>
                                 <select class="form-select select2-po auto-input" id="penarikan" name="penarikan[]" multiple="multiple"
                                     data-placeholder="Pilih Margin Tersedia dan Total Investasi Transfer">
@@ -164,8 +169,10 @@
                                     <span>Prev. Dana: <strong>{{ number_format($prevDana) }}</strong></span>
                                     <span id="formula_text"></span>
                                 </div>
-                                <label class="form-label fw-bold">Dana Tersedia (Automatic Result)</label>
-                                <input type="text" class="form-control readonly-input" id="dana_tersedia_display" readonly>
+                                <label class="form-label fw-bold">Dana Tersedia</label>
+                                <input type="text" class="form-control readonly-input" id="dana_tersedia_display">
+                                <label class="form-label fw-bold mt-4">Pengembalian Dana</label>
+                                <input name="pengembalian_dana" type="text" class="form-control readonly-input" id="pengembalian_dana" readonly>
                                 <input type="hidden" id="prev_dana" value="{{ $prevDana }}">
                             </div>
                         </div>
@@ -323,6 +330,7 @@
             }
 
             var pencairan = parseFloat($('#pencairan_modal').val()) || 0;
+            var margin_cair = parseFloat($('#margin_cair').val()) || 0;
             var penarikan = 0;
             $('#penarikan option:selected').each(function() {
                 // Sum up the value of each selected option
@@ -335,6 +343,7 @@
             var total = (prev + setor + margin + pencairan) - (poBaru + penarikan);
 
             $('#dana_tersedia_display').val(new Intl.NumberFormat('id-ID').format(total));
+            $('#pengembalian_dana').val(new Intl.NumberFormat('id-ID').format(pencairan + margin_cair));
             $('#formula_text').text('(' + prev.toLocaleString() + ' + ' + setor.toLocaleString() + ' + ' + margin.toLocaleString() + ' + ' + pencairan.toLocaleString() + ') - (' + poBaru.toLocaleString() + ' + ' + penarikan.toLocaleString() + ')');
         }
 

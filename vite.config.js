@@ -68,5 +68,8 @@ export default defineConfig({
     commonjsOptions: {
       include: [/node_modules/] // Helps with importing CommonJS modules
     }
-  }
+  },
+  esbuild: {
+    jsx: 'preserve', // ← tells Vite not to treat < inside strings as JSX
+  },
 });

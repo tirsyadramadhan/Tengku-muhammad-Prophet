@@ -92,10 +92,25 @@ class Po extends Model
                 }
             });
     }
-
     public function syncStatus($save = true)
     {
-        $this->load('deliveries');
+        $this->load('deliveries.invoice.payment');
+
+        // ── Sync each invoice's status_invoice based on payment_status ──
+        foreach ($this->deliveries as $delivery) {
+            $invoice = $delivery->invoice;
+            if (!$invoice) continue;
+
+            $newStatus = ($invoice->payment && (int) $invoice->payment->payment_status === 1) ? 1 : 0;
+
+            if ((int) $invoice->status_invoice !== $newStatus) {
+                $invoice->status_invoice = $newStatus;
+                $invoice->save();
+            }
+        }
+
+        // ── Reload after invoice status updates ─────────────────────────
+        $this->load('deliveries.invoice');
         $deliveries = $this->deliveries;
 
         if ($deliveries->isEmpty()) {
@@ -109,10 +124,10 @@ class Po extends Model
         }
 
         $sumDelivered = $deliveries->sum('qty_delivered');
-        $poQty = $this->qty;
+        $poQty        = $this->qty;
 
         $totalDeliveriesCount = $deliveries->count();
-        $invoicedCount = $deliveries->where('invoiced_status', 1)->count();
+        $invoicedCount        = $deliveries->where('invoiced_status', 1)->count();
 
         $isPartiallyDelivered = ($sumDelivered < $poQty);
         $isFullyDelivered     = ($sumDelivered >= $poQty);
@@ -122,7 +137,6 @@ class Po extends Model
         $isPartiallyInvoiced = ($invoicedCount > 0 && $invoicedCount < $totalDeliveriesCount);
 
         if ($isPartiallyDelivered) {
-
             if ($isUninvoiced) {
                 $this->status = self::STATUS_PARTIALLY_DELIVERED;
             } elseif ($isPartiallyInvoiced) {
@@ -136,15 +150,13 @@ class Po extends Model
             } elseif ($isPartiallyInvoiced) {
                 $this->status = self::STATUS_FULLY_DELIVERED_PARTIALLY_INVOICED;
             } elseif ($isAllInvoiced) {
-                $unpaidInvoices = $this->relationLoaded('invoices')
-                    ? $this->invoices->where('status_invoice', '!=', 1)->count()
-                    : $this->invoices()->where('status_invoice', '!=', 1)->count();
+                $unpaidInvoices = $this->deliveries
+                    ->filter(fn($d) => $d->invoice && (int) $d->invoice->status_invoice !== 1)
+                    ->count();
 
-                if ($unpaidInvoices > 0) {
-                    $this->status = self::STATUS_FULLY_DELIVERED_FULLY_INVOICED;
-                } else {
-                    $this->status = self::STATUS_CLOSED;
-                }
+                $this->status = $unpaidInvoices > 0
+                    ? self::STATUS_FULLY_DELIVERED_FULLY_INVOICED
+                    : self::STATUS_CLOSED;
             }
         }
 

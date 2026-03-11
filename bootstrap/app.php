@@ -12,6 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
   )
   ->withMiddleware(function (Middleware $middleware) {
     $middleware->trustProxies(at: '*'); // Trust all proxies for ngrok development
+    $middleware->alias([
+      'role' => \App\Http\Middleware\RoleMiddleware::class,
+    ]);
   })
   ->withExceptions(function (Exceptions $exceptions) {
     //

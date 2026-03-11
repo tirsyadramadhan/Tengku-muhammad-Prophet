@@ -1,0 +1,23 @@
+1. Login page styling must be good and use some backgrounds ✔
+2. User logs must only show the 10 latest logs to avoid lags ✔
+3. Use google's captcha for login to avoid DOS attacks ✔
+4. All pages javascript must be stored in 1 main javascript for performance ✔
+5. All pages CSS must be stored in 1 main CSS for performance ✔
+6. Navigation links should show which one is the selected link based on what page url the user is currently in ✔
+7. Make the PHP language for this project blazingly fast and use RAM for performance
+8. Register this project's cloudflare SSL certificate and use cloudflare tunneling to host and expose this project
+to the internet
+9. after the current date has reached the delivery_time_estimation date, Deliveries must only show red colored date and show a text below the date saying "Hari Jam Menit yang lalu"
+DO NOT UPDATE THE delivered_status to 1 and do not perform the auto-deliver fetch
+10. Add a column called payment_date_estimation for payments table and payments must only show notification and warning
+after the current date has reached the payment_date_estimation date also make the date red colored and show a text below the date saying "Hari Jam Menit yang lalu" ✔
+11. after the current date has reached due_date, Invoices must show a red colored text below the date saying "Hari Jam Menit yang lalu"
+12. Make a forgot password page where the user must enter email address and enter the code sent to the user's email address to change the password and username (optional)
+13. Make a register page where the user can register accounts but after submitting the form instead of adding an account, the user must wait for the administrator to approve
+the account and if the administrator approves it, then the user can login to the specified account if the administrator rejects the account then that account is deleted
+14. (Optional) make notifications for each user with the role_id 1 and 3. Notifications contain everything below:
+	Invoice and Payment paid prioritize 1
+	Delivery delivered into location prioritize 2
+	Incoming PO became an Open PO prioritize 3
+	Investasi added prioritize 4
+15. storage link location: The [C:\project\public\storage] link has been connected to [C:\project\storage\app/public]

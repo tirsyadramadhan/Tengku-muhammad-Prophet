@@ -102,3 +102,15 @@ Partially Delivered & Fully Invoiced set the status of that PO to 6 (Partially D
 8: Closed
 PROCESS: MUST BE FULLY DELIVERED AND FULLY INVOICED but WAIT were all invoices paid yet? if not keep the status to FULLY DELIVERED AND FULLY INVOICED until
 every invoice has the status_invoice = 1
+
+<table class="table table-bordered table-dark">
+    <tbody>
+        <tr>
+            <th>Rumus Dana Tersedia:</th>
+        </tr>
+        <tr>
+            <td>Total margin seluruh PO (Kecuali Incoming PO): </td>
+            <td>{{ number_format($totalMargin) }}</td>
+        </tr>
+    </tbody>
+</table>

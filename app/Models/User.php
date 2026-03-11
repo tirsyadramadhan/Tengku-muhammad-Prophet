@@ -6,11 +6,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Traits\ActivityLogger;
 
 class User extends Authenticatable
 {
     use Notifiable;
-
+    use ActivityLogger;
     protected $table = 'tbl_user';
     protected $primaryKey = 'user_id';
 
@@ -27,12 +28,20 @@ class User extends Authenticatable
         'input_date',
         'edit_date',
         'edit_by',
+        'profile_picture',
+        'is_active',
+        'remember_token'
     ];
 
     protected $hidden = [
         'password',
+        'remember_token'
     ];
 
+    protected $casts = [
+        'last_login' => 'datetime',
+        'is_active'  => 'boolean',
+    ];
     // Tell Laravel which column to use for the password during login
     public function getAuthPassword()
     {
@@ -50,5 +59,15 @@ class User extends Authenticatable
     public function hasRole($roleName)
     {
         return $this->role && $this->role->role_name === $roleName;
+    }
+
+    public function activities()
+    {
+        return $this->hasMany(ActivityLog::class, 'user_id');
+    }
+
+    public function getAuthIdentifierName(): string
+    {
+        return 'user_id';
     }
 }

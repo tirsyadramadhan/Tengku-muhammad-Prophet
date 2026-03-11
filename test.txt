@@ -3505,3 +3505,373 @@ public function collection(Collection $rows)
         }
     }
 }
+
+the blade code below give errors saying syntax error, unexpected token "endforeach"
+
+<div class="timeline-header mb-2">
+    @if ($activity->action == "create" && $activity->model == "App\Models\Investasi")
+    <h6 class="mb-1">Investasi ditambahkan dengan rincian: </h6>
+    <ul class="list-group">
+        @php
+        $data = json_decode($activity->new_data, true);
+        $skip = ['tgl_investasi', 'id_investasi'];
+        @endphp
+        @foreach ($data as $key => $value)
+        @php
+        if (in_array($key, $skip)) continue;
+        @endphp
+        <li class="list-group-item">Modal Setor Awal: <span class="text-success">{{$value}}</span>
+        </li>
+        <li class="list-group-item">Modal PO Baru: <span class="text-success">{{$value}}</span></li>
+        <li class="list-group-item">Margin: <span class="text-success">{{$value}}</span></li>
+        <li class="list-group-item">Pencairan Modal: <span class="text-success">{{$value}}</span></li>
+        <li class="list-group-item">Margin Cair: <span class="text-success">{{$value}}</span></li>
+        <li class="list-group-item">Pengembalian Dana: <span class="text-success">{{$value}}</span></li>
+        <li class="list-group-item">Dana Tersedia: <span class="text-success">{{$value}}</span></li>
+        @endforeach
+    </ul>
+    @else
+    <h6 class="mb-1">{{ $activity->description }}</h6>
+    <div class="d-flex justify-content-between align-items-center">
+        <small class="text-muted">{{ $activity->created_at->format('d M Y H:i') }}</small>
+        <small class="text-body-secondary">{{ $activity->created_at->diffForHumans() }}</small>
+    </div>
+</div>
+
+public function update(Request $request, $id)
+{
+    $item = Customer::findOrFail($id);
+    $oldCustomer = clone $item;
+    $item->update([
+        'cust_name' => $request->cust_name,
+        'edit_by'   => Auth::id(),
+        'edit_date' => now()
+    ]);
+
+    $this->logUpdate($item, $oldCustomer, 'Di ubah Customer ' . $oldCustomer->cust_name . ' menjadi ' . $item->cust_name);
+
+    return redirect()->route('customer.index')->with('success', 'Customer updated!');
+}
+
+$.ajax({
+    url: '{{ route("customer.update", $item->id_cust) }}',
+    method: 'PUT',
+    data: $(this).serialize(),
+    success: function(response) {
+        if (response.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: response.message,
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.href = response.redirect_url;
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Kesalahan',
+                text: response.message || 'Terjadi kesalahan.'
+            });
+            $btn.prop('disabled', false);
+            $spinner.addClass('d-none');
+        }
+    },
+    error: function(xhr) {
+        $btn.prop('disabled', false);
+        $spinner.addClass('d-none');
+
+        let msg = 'Terjadi kesalahan.';
+        if (xhr.responseJSON && xhr.responseJSON.message) {
+            msg = xhr.responseJSON.message;
+        } else if (xhr.responseJSON && xhr.responseJSON.errors) {
+            msg = Object.values(xhr.responseJSON.errors).map(e => e[0]).join('<br>');
+        }
+        Swal.fire({
+            icon: 'error',
+            title: 'Kesalahan',
+            html: msg
+        });
+    }
+});
+
+<div class="misc-wrapper" bis_skin_checked="1">
+    <h1 class="mb-2 mx-2" style="font-size: 6rem;line-height: 6rem">401</h1>
+    <h4 class="mb-2">You are not authorized! 🔐</h4>
+    <p class="mb-10 mx-2">You don’t have permission to access this page. Go Home!</p>
+    <div class="d-flex justify-content-center mt-5" bis_skin_checked="1">
+        <img src="https://demos.themeselection.com/materio-bootstrap-html-laravel-admin-template/demo/assets/img/illustrations/tree-3.png" alt="misc-tree" class="img-fluid misc-object d-none d-lg-inline-block">
+        <img src="https://demos.themeselection.com/materio-bootstrap-html-laravel-admin-template/demo/assets/img/illustrations/tree.png" alt="misc-tree" class="img-fluid misc-object-right d-none d-lg-inline-block">
+        <img src="https://demos.themeselection.com/materio-bootstrap-html-laravel-admin-template/demo/assets/img/illustrations/misc-mask-light.png" alt="misc-error" class="scaleX-n1-rtl misc-bg d-none d-lg-inline-block" height="172" data-app-light-img="illustrations/misc-mask-light.png" data-app-dark-img="illustrations/misc-mask-dark.png" style="visibility: visible;">
+        <div class="d-flex flex-column align-items-center" bis_skin_checked="1">
+            <img src="https://demos.themeselection.com/materio-bootstrap-html-laravel-admin-template/demo/assets/img/illustrations/401.png" alt="misc-error" class="misc-model img-fluid z-1" width="780">
+            <div bis_skin_checked="1">
+                <a href="https://demos.themeselection.com/materio-bootstrap-html-laravel-admin-template/demo-1" class="btn btn-primary text-center my-6 waves-effect waves-light">Back to home</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+i want this code to become possible to write inside the blade view:
+Invoice: {{ $inv->nomor_invoice }} | Delivery: {{ $inv->delivery->delivery_no }} | Nomor PO: {{ $inv->delivery->po->no_po }} | Nama Barang: {{ $inv->delivery->po->nama_barang }} | Tagihan: Rp {{ number_format($inv->total_display, 0, ',', '.') }}
+
+by modifying the controller below:
+
+$invoices = Invoice::with(['delivery.po.customer'])
+->where(function ($q) use ($payment) {
+    $q->where('status_invoice', 0)
+        ->orWhere('invoice_id', $payment->invoice_id);
+})
+->get()
+->map(function ($inv) {
+    return (object) [
+        'invoice_id'    => $inv->invoice_id,
+        'nomor_invoice' => $inv->nomor_invoice,
+        'total_display' => optional($inv->delivery?->po)->total ?? 0,
+        'customer_name' => optional($inv->delivery?->po?->customer)->nama_cust
+            ?? optional($inv->delivery?->po?->customer)->name
+            ?? optional($inv->delivery?->po?->customer)->customer_name
+            ?? '(no customer)',
+    ];
+});
+
+my password input is using input-group making every error message placed right besides the input instead of below the input, fix this problem
+
+<div class="mb-4">
+    <label class="form-label fw-bold">Password</label>
+    <div class="input-group has-validation">
+        <input type="password" name="password" id="password-input" class="form-control live-validate" placeholder="Password">
+        <button type="button" class="btn btn-outline-secondary" id="toggle-password">
+            <i class="icon-base ri ri-eye-off-line icon-20px"></i>
+        </button>
+    </div>
+</div>
+
+validation
+.addField('#user_name', [
+    {
+        rule: 'required',
+        errorMessage: 'Username is required',
+    },
+    {
+        rule: 'customRegexp',
+        value: /^[a-zA-Z0-9_-]{3,16}$/,
+        errorMessage: 'Username must be 3–16 chars (letters, numbers, _ or -)',
+    },
+])
+.addField('#role-pengguna', [
+    {
+        rule: 'required',
+        errorMessage: 'Role is required',
+    },
+])
+.addField('#email', [
+    {
+        rule: 'required',
+        errorMessage: 'Email is required',
+    },
+    {
+        rule: 'email',
+        errorMessage: 'Enter a valid email address',
+    },
+])
+.addField('#profile_picture', [
+    {
+        rule: 'files',
+        value: {
+            files: {
+                extensions: ['jpg', 'jpeg', 'png', 'webp'],
+                maxSize: 2 * 1024 * 1024, // 2MB
+                type: ['image/jpeg', 'image/png', 'image/webp'],
+            },
+        },
+        errorMessage: 'Only JPG/PNG/WEBP under 2MB allowed',
+    },
+])
+.addField('#password-input', [
+    {
+        rule: 'required',
+        errorMessage: 'Password is required',
+    },
+    {
+        rule: 'minLength',
+        value: 8,
+        errorMessage: 'Password must be at least 8 characters',
+    },
+    {
+        rule: 'customRegexp',
+        value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/,
+        errorMessage: 'Must include uppercase, lowercase, and a number',
+    },
+], { errorsContainer: '#password-error' })
+.onSuccess((event) => {
+    fetch(this.action, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+        },
+        body: formData
+    })
+        .then(async response => {
+            const data = await response.json();
+
+            if (response.ok) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: data.message ?? 'Pengguna berhasil dibuat.',
+                    confirmButtonColor: '#696cff'
+                }).then(() => {
+                    if (data.redirect) {
+                        window.location.href = data.redirect;
+                    } else {
+                        document.getElementById('create-users').reset();
+                        for (let i = 0; i < validateInputs.length; i++) {
+                            validateInputs[i].classList.remove('is-valid', 'is-invalid');
+                        }
+                    }
+                });
+            } else if (response.status === 422) {
+                const errors = data.errors ?? {};
+                const messages = Object.values(errors).flat().join('<br>');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Validasi Gagal!',
+                    html: messages || 'Terjadi kesalahan validasi.',
+                    confirmButtonColor: '#d33'
+                });
+
+                for (const field in errors) {
+                    const el = document.querySelector(`[name="${field}"]`);
+                    if (el) {
+                        el.classList.remove('is-valid');
+                        el.classList.add('is-invalid');
+                    }
+                }
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Terjadi Kesalahan!',
+                    text: data.message ?? 'Server error. Coba lagi nanti.',
+                    confirmButtonColor: '#d33'
+                });
+            }
+        })
+        .catch(() => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Koneksi Gagal!',
+                text: 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+                confirmButtonColor: '#d33'
+            });
+        })
+        .finally(() => {
+            btnSave.disabled = false;
+            btnSpinner.classList.add('d-none');
+        });
+});
+
+<div class="d-flex justify-content-end">
+    <button type="submit" id="btnSave" class="btn btn-primary px-5">
+        <span id="btnSpinner" class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
+        Simpan Pengguna
+    </button>
+</div>
+
+the code is not correct, how do i fix the problems
+
+->addColumn('user_name', function ($row) {
+    $profile_picture = $row->profile_picture;
+    $username = $row->user_name;
+    return '
+    <div class="d-flex justify-content-start align-items-center user-name" bis_skin_checked="1">
+        <div class="avatar-wrapper" bis_skin_checked="1">
+            <div class="avatar avatar-sm me-4" bis_skin_checked="1">
+            <img
+                src='{{ asset('storage/' . $profile_picture) }}'
+                alt="Avatar"
+                class="rounded-circle" />
+            </div>
+        </div>
+        <div class="d-flex flex-column" bis_skin_checked="1">
+            <span class="fw-medium">'$username'</span>
+            <small>'$username'</small>
+        </div>
+    </div>
+    ';
+})
+
+how do i make it so that the User's model will update the last_login column of this specific id to the current datetime everytime the user logs in
+how do i make the input checkbox remember_user works after the user logs in. I want the user to be remembered after logging in if the value of remember_user is 1
+or else do not remember the user after the user logs in
+
+this is my input:
+
+<input name="remember_user" class="form-check-input me-2" type="checkbox" value="0" id="form2Example3" />
+
+this is my controller's method:
+
+public function login(Request $request)
+{
+    $rules = [
+        'user_name' => 'required|string|max:255',
+        'password' => 'required|string',
+        'recaptcha_token'  => ['required', new ValidRecaptcha()]
+    ];
+
+    $messages = [
+        'user_name.required' => 'The name field is mandatory.',
+        'user_name.max' => 'Username terlalu panjang!',
+        'password.required' => 'Isi Password!'
+    ];
+
+    $validator = Validator::make($request->all(), $rules, $messages);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation errors',
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    // Attempt login with credentials
+    $credentials = $request->only('user_name', 'password');
+
+    if (Auth::attempt($credentials)) {
+        $request->session()->regenerate();
+        $this->logLogin();
+        return response()->json([
+            'success' => true,
+            'message' => 'Login successful',
+            'redirect' => '/dashboard' // Add redirect URL
+        ], 200);
+    }
+
+    // Authentication failed
+    return response()->json([
+        'success' => false,
+        'message' => 'Invalid credentials',
+        'errors' => [
+            'user_name' => ['These credentials do not match our records.']
+        ]
+    ], 401);
+}
+
+all of the span is using the same badge color, the width of the span is too long instead of the content's width. fix all the problems
+
+<div class="d-flex flex-column">
+    <span class="mb-4 badge badge-primary fw-bold text-dark mb-0">No PO: ' . e($row->no_po) . '</span>
+    <span class="mb-4 badge badge-primary fw-bold text-dark mb-0">Nama Barang: ' . e($row->nama_barang) . '</span>
+    <span class="mb-4 badge badge-info fw-bold text-dark mb-0">Kuantitas: ' . (int)$row->qty_delivered . '</span>
+    <span class="mb-4 badge badge-info fw-bold text-dark mb-0">No Delivery: ' . e($row->delivery_no) . '</span>
+    <span class="mb-4 badge badge-light fw-bold text-dark mb-0">No Invoice: ' . e($row->nomor_invoice) . '</span>
+</div>
+
+<form
+data-method="PUT"
+id="incomingPoForm" action="{{ route('incomingPo.update', $po->po_id) }}" method="POST">

@@ -26,3 +26,7 @@ yarn-error.log
 !/public/assets/*
 /public/css
 /public/js
+
+**/caddy
+frankenphp
+frankenphp-worker.php

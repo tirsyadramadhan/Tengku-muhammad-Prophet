@@ -7,43 +7,31 @@
       "slug": "dashboard"
     },
     {
-      "menuHeader": "Datas"
-    },
-    {
-      "name": "Users",
-      "icon": "menu-icon icon-base ri-user-line",
-      "slug": "",
-      "url": "master/users"
-    },
-    {
-      "name": "Customers",
-      "icon": "menu-icon icon-base ri-user-star-line",
-      "slug": "",
-      "url": "master/customers"
+      "menuHeader": "Purchase Orders"
     },
     {
       "name": "Incoming POs",
       "icon": "menu-icon icon-base ri-shopping-cart-2-line",
       "slug": "",
-      "url": "transactions/incoming-purchase-orders"
+      "url": "incoming-purchase-orders"
     },
     {
       "name": "Purchase Orders",
       "icon": "menu-icon icon-base ri-shopping-basket-line",
       "slug": "",
-      "url": "transactions/purchase-orders"
+      "url": "purchase-orders"
     },
     {
       "name": "Deliveries",
       "icon": "menu-icon icon-base ri-truck-line",
       "slug": "",
-      "url": "transactions/deliveries"
+      "url": "deliveries"
     },
     {
       "name": "Invoices",
       "icon": "menu-icon icon-base ri-file-list-3-line",
       "slug": "",
-      "url": "transactions/invoices"
+      "url": "invoices"
     },
     {
       "menuHeader": "Financials"
@@ -52,13 +40,28 @@
       "name": "Payments",
       "icon": "menu-icon icon-base ri-money-dollar-circle-line",
       "slug": "",
-      "url": "financials/payments"
+      "url": "payments"
     },
     {
       "name": "Rekap Investasi",
       "icon": "menu-icon icon-base ri-coins-line",
       "slug": "",
-      "url": "financials/investments"
+      "url": "investments"
+    },
+    {
+      "menuHeader": "People"
+    },
+    {
+      "name": "Users",
+      "icon": "menu-icon icon-base ri-user-line",
+      "slug": "",
+      "url": "users"
+    },
+    {
+      "name": "Customers",
+      "icon": "menu-icon icon-base ri-user-star-line",
+      "slug": "",
+      "url": "customers"
     }
   ]
 }

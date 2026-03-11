@@ -1,0 +1,115 @@
+var dt_table = $('#table-po');
+
+if (dt_table.length) {
+    var table = dt_table.DataTable({
+        processing: true,
+        serverSide: true,
+        deferRender: true,
+        fixedHeader: true,
+        scrollX: true,
+        scrollY: '60vh',
+        scrollCollapse: true,
+        ajax: {
+            url: ajaxUrl,
+            dataSrc: function (json) {
+                if (json.totals) {
+                    $('#ft-qty').text(Number(json.totals.qty || 0).toLocaleString('id-ID'));
+                    $('#ft-total').text(rupiah(json.totals.total));
+                    $('#ft-modal').text(rupiah(json.totals.modal_awal));
+                    $('#ft-margin').text(rupiah(json.totals.margin));
+                }
+                return json.data;
+            }
+        },
+        columns: [{
+            data: 'DT_RowIndex',
+            name: 'DT_RowIndex',
+            orderable: false,
+            searchable: false,
+            className: 'fw-medium'
+        },
+        {
+            data: 'detail_po',
+            name: 'detail_po',
+            className: 'fw-medium'
+        },
+        {
+            data: 'qty',
+            name: 'qty',
+            className: 'fw-medium text-center'
+        },
+        {
+            data: 'invoice_details',
+            name: 'invoice_details',
+            className: 'fw-medium text-center'
+        },
+        {
+            data: 'price_references',
+            name: 'price_references',
+            className: 'fw-medium'
+        },
+        {
+            data: 'margin_references',
+            name: 'margin_references',
+            className: 'fw-medium'
+        },
+        {
+            data: 'action',
+            name: 'action',
+            orderable: false,
+            searchable: false,
+            className: 'fw-medium'
+        }
+        ],
+        order: [
+            [2, 'desc']
+        ],
+        pageLength: 5,
+        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
+    });
+
+    // ── Delete Handler ─────────────────────────────────────────
+    $(document).on('click', '.btn-delete', function () {
+        const deleteUrl = $(this).data('url');
+        const poNo = $(this).data('po');
+
+        Swal.fire({
+            title: 'Hapus PO?',
+            text: `Apakah Anda yakin ingin menghapus PO #${poNo}?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#e6381a',
+            cancelButtonColor: '#6e7d88',
+            confirmButtonText: 'Ya, Hapus!',
+            cancelButtonText: 'Batal',
+            reverseButtons: true,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                return $.ajax({
+                    url: deleteUrl,
+                    type: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                }).catch(error => {
+                    Swal.showValidationMessage(
+                        `Request failed: ${error.responseJSON?.message ?? error.statusText}`
+                    );
+                });
+            },
+            allowOutsideClick: () => !Swal.isLoading()
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Dihapus!',
+                    text: 'Data PO berhasil dihapus.',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                table.ajax.reload(null, false);
+                updateCardStats();
+            }
+        });
+    });
+}
