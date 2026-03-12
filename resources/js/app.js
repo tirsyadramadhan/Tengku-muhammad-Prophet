@@ -2318,6 +2318,9 @@ if (document.getElementById('delivery-table')) {
         serverSide: true,
         deferRender: true,
         fixedHeader: true,
+        scrollX: true,
+        scrollY: '43vh',
+        scrollCollapse: true,
         ajax: ajaxUrl,
         columns: [
             {
@@ -2590,6 +2593,9 @@ if (document.getElementById('invoice-table')) {
         serverSide: true,
         deferRender: true,
         fixedHeader: true,
+        scrollX: true,
+        scrollY: '44vh',
+        scrollCollapse: true,
         ajax: ajaxUrl,
         order: [
             [4, 'asc']
@@ -2750,10 +2756,192 @@ if (document.getElementById('invoice-table')) {
     });
 }
 
+if (document.getElementById("import-form")) {
+    const validator = new JustValidate('#import-form', {
+        successFieldCssClass: 'is-valid',
+        errorFieldCssClass: 'is-invalid',
+        errorLabelCssClass: 'invalid-feedback',
+        successLabelCssClass: 'valid-feedback',
+        validateBeforeSubmitting: true,
+    });
+
+    validator
+        .addField('#import-file', [
+            {
+                rule: 'required',
+                errorMessage: 'File diperlukan. Silakan pilih file yang ingin diimpor.',
+            },
+            {
+                validator: (value, fields) => {
+                    const file = fields['#import-file'].elem.files[0];
+                    if (!file) return false;
+                    const allowedTypes = [
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        'application/vnd.ms-excel',
+                        'text/csv',
+                        'application/csv',
+                    ];
+                    const allowedExtensions = ['xlsx', 'xls', 'csv'];
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    return allowedTypes.includes(file.type) || allowedExtensions.includes(ext);
+                },
+                errorMessage: 'Tipe file tidak valid. Hanya file .xlsx, .xls, dan .csv yang diperbolehkan.',
+            },
+            {
+                validator: (value, fields) => {
+                    const file = fields['#import-file'].elem.files[0];
+                    if (!file) return false;
+                    const maxSize = 5 * 1024 * 1024;
+                    return file.size <= maxSize;
+                },
+                errorMessage: 'Ukuran file melebihi batas 5MB. Harap unggah file yang lebih kecil.',
+            },
+            {
+                validator: (value, fields) => {
+                    const file = fields['#import-file'].elem.files[0];
+                    if (!file) return false;
+                    return file.size > 0;
+                },
+                errorMessage: 'Berkas tampaknya kosong. Silakan unggah berkas yang valid.',
+            },
+        ], {
+            successMessage: 'File valid'
+        });
+
+    // ✅ Live revalidate on file change — await the Promise
+    document.getElementById('import-file').addEventListener('change', async () => {
+        const isValid = await validator.revalidate();  // ✅ awaited
+
+        if (isValid) {
+            const file = document.getElementById('import-file').files[0];
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+
+            Swal.fire({
+                toast: true,
+                position: 'center',
+                icon: 'success',
+                title: 'Berkas siap diimpor!',
+                html: `<small><b>${file.name}</b> (${sizeMB} MB)</small>`,
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+            });
+        }
+    });
+
+    // ✅ EVERYTHING BELOW MUST BE INSIDE A SUBMIT HANDLER
+    document.getElementById('import-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        // ✅ Validate before doing anything
+        const isValid = await validator.revalidate();
+        if (!isValid) return;
+
+        // ✅ 'confirm' renamed to 'swalResult' — confirm is a reserved global
+        const swalResult = await Swal.fire({
+            title: 'Import Berkas?',
+            text: 'Pastikan file Anda sudah benar sebelum mengimpornya.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#198754',
+            cancelButtonColor: '#dc3545',
+            confirmButtonText: 'Yes, Import!',
+            cancelButtonText: 'Cancel',
+        });
+
+        if (!swalResult.isConfirmed) return;
+
+        // Show loading
+        Swal.fire({
+            title: 'Importing...',
+            text: 'Mohon tunggu sementara kami memproses berkas Anda.',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => Swal.showLoading(),
+        });
+
+        // Build FormData
+        const formData = new FormData();
+        formData.append('file', document.getElementById('import-file').files[0]);
+        formData.append('_token', document.querySelector('input[name="_token"]').value);
+        const form = document.getElementById('import-form');  // ✅ const added
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                    'Accept': 'application/json',
+                },
+                body: formData,
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                await Swal.fire({
+                    title: 'Import Berhasil!',
+                    text: result.message ?? 'Seluruh PO telah berhasil diimpor.',
+                    icon: 'success',
+                    confirmButtonColor: '#198754',
+                    confirmButtonText: 'OK',
+                });
+
+                document.getElementById('import-form').reset();
+                document.getElementById('import-file').classList.remove('is-valid', 'is-invalid');
+
+            } else if (response.status === 422) {
+                const errors = result.errors
+                    ? Object.values(result.errors).flat().join('<br>')
+                    : result.message ?? 'Validation failed.';
+
+                await Swal.fire({
+                    title: 'Kesalahan Validasi!',
+                    html: errors,
+                    icon: 'warning',
+                    confirmButtonColor: '#ffc107',
+                    confirmButtonText: 'OK',
+                });
+
+            } else {
+                await Swal.fire({
+                    title: 'Impor Gagal!',
+                    text: result.message ?? 'Terjadi kesalahan. Silakan coba lagi.',
+                    icon: 'error',
+                    confirmButtonColor: '#dc3545',
+                    confirmButtonText: 'OK',
+                });
+            }
+
+        } catch (error) {
+            await Swal.fire({
+                title: 'Terjadi kesalahan koneksi!',
+                text: 'Tidak dapat terhubung ke server. Harap periksa koneksi Anda dan coba lagi.',
+                icon: 'error',
+                confirmButtonColor: '#dc3545',
+                confirmButtonText: 'OK',
+            });
+        }
+    });
+}
+
 if (document.getElementById('table-users')) {
     const tableEl = document.getElementById('table-users');
     const ajaxUrl = tableEl.getAttribute('data-url');   // FIX #1
     var dt_table = $('#table-users');
+    $('#table-users thead').append(`
+        <tr class="column-search-row">
+            <th></th>
+            <th>
+                <input type="text" id="search-detail-users"
+                    class="form-control form-control-sm" 
+                    placeholder="Cari nama / role / terakhir login"
+                    style="min-width:180px;">
+            </th>
+            <th></th>
+        </tr>
+    `);
 
     if (dt_table.length) {
         var table = dt_table.DataTable({
@@ -2761,6 +2949,9 @@ if (document.getElementById('table-users')) {
             serverSide: true,
             deferRender: true,
             fixedHeader: true,
+            scrollX: true,
+            scrollY: '48.5vh',
+            scrollCollapse: true,
             ajax: {
                 url: ajaxUrl,
             },
@@ -2790,6 +2981,17 @@ if (document.getElementById('table-users')) {
             ],
             pageLength: 5,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
+            orderCellsTop: true,
+            initComplete: function () {
+                var api = this.api();
+
+                // ── Bind search input AFTER init ───────────────────
+                $('#search-detail-users').on('keyup change', function () {
+                    if (api.column(1).search() !== this.value) {
+                        api.column(1).search(this.value).draw();
+                    }
+                });
+            }
         });
 
         // ── Delete Handler ─────────────────────────────────────────
@@ -2937,6 +3139,9 @@ if (document.getElementById('table-incoming')) {
             serverSide: true,
             deferRender: true,
             fixedHeader: true,
+            scrollX: true,
+            scrollY: '52vh',
+            scrollCollapse: true,
             ajax: {
                 url: ajaxUrl,
                 dataSrc: function (json) {
@@ -3061,6 +3266,99 @@ if (document.getElementById('table-incoming')) {
 }
 
 if (document.getElementById('table-po')) {
+    document.addEventListener('DOMContentLoaded', function () {
+        if (document.getElementById('truncate-po')) {
+            document.getElementById('truncate-po').addEventListener('click', async function () {
+                let validator = null;
+
+                await Swal.fire({
+                    template: '#truncate-form',
+
+                    didOpen: () => {
+                        validator = new JustValidate('#truncate-po-form', {
+                            successFieldCssClass: 'is-valid',
+                            errorFieldCssClass: 'is-invalid',
+                            errorLabelCssClass: 'invalid-feedback',
+                            successLabelCssClass: 'valid-feedback',
+                            validateBeforeSubmitting: true,
+                        });
+
+                        validator
+                            .addField('#swal-reason', [
+                                { rule: 'required', errorMessage: 'Alasan wajib diisi.' },
+                                { rule: 'minLength', value: 10, errorMessage: 'Alasan minimal 10 karakter.' },
+                            ], { successMessage: 'Alasan sudah benar' })
+                            .addField('#swal-confirm', [
+                                { rule: 'required', errorMessage: 'Konfirmasi wajib diisi.' },
+                                {
+                                    validator: (value) => value === 'SAYA YAKIN ATAS TINDAKAN INI',
+                                    errorMessage: 'Ketik tepat: SAYA YAKIN ATAS TINDAKAN INI',
+                                },
+                            ], { successMessage: 'Konfirmasi sudah benar' });
+                    },
+
+                    preConfirm: () => {
+                        if (!validator) {
+                            Swal.showValidationMessage('Validator belum siap, coba lagi.');
+                            return false;
+                        }
+                        return new Promise((resolve) => {
+                            validator.revalidate().then((isValid) => {  // ✅ validator not window._swalValidator
+                                if (!isValid) {
+                                    Swal.showValidationMessage('Harap isi semua field dengan benar.');
+                                    resolve(false);
+                                } else {
+                                    Swal.resetValidationMessage();
+                                    resolve(true);
+                                }
+                            });
+                        });
+                    },
+
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+
+                }).then(async (swalResult) => {
+                    if (!swalResult.isConfirmed) return;  // ✅ check before fetch
+
+                    try {
+                        const formValues = {
+                            reason: document.querySelector('#swal-reason').value,
+                            confirm: document.querySelector('#swal-confirm').value,  // ✅ not 'reason'
+                        };
+
+                        const form = document.getElementById('truncate-po-form');
+
+                        const response = await fetch(form.action, {  // ✅ await
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            },
+                            body: JSON.stringify(formValues),
+                        });
+
+                        const data = await response.json();  // ✅ await + renamed
+
+                        if (response.ok) {
+                            await Swal.fire({ title: 'Berhasil!', text: data.message ?? 'Seluruh PO berhasil dihapus.', icon: 'success', confirmButtonColor: '#198754' });
+                            window.location.reload();
+                        } else if (response.status === 422) {
+                            const errors = data.errors ? Object.values(data.errors).flat().join('<br>') : data.message ?? 'Validasi gagal.';
+                            Swal.fire({ title: 'Validasi Gagal!', html: errors, icon: 'warning', confirmButtonColor: '#ffc107' });
+                        } else {
+                            Swal.fire({ title: 'Gagal!', text: data.message ?? 'Terjadi kesalahan.', icon: 'error', confirmButtonColor: '#dc3545' });
+                        }
+
+                    } catch (error) {
+                        Swal.fire({ title: 'Koneksi Error!', text: 'Tidak dapat terhubung ke server.', icon: 'error', confirmButtonColor: '#dc3545' });
+                    }
+                });
+            });
+        }
+    });
+
     const tableEl = document.getElementById('table-po');
     const ajaxUrl = tableEl.getAttribute('data-url');   // FIX #1
 
@@ -3140,16 +3438,10 @@ if (document.getElementById('table-po')) {
                     style="min-width:180px;">
             </th>
             <th>
-                <input type="text" id="search-qty"
+                <input type="text" id="search-relation_details"
                     class="form-control form-control-sm" 
-                    placeholder="Cari qty / % / sisa..."
+                    placeholder="Cari delivery / invoice / payment"
                     style="min-width:120px;">
-            </th>
-            <th>
-                <input type="text" id="search-invoice"
-                    class="form-control form-control-sm" 
-                    placeholder="Cari invoice / paid / %..."
-                    style="min-width:150px;">
             </th>
             <th>
                 <input type="text" id="search-price"
@@ -3172,7 +3464,7 @@ if (document.getElementById('table-po')) {
             deferRender: true,
             fixedHeader: true,
             scrollX: true,
-            scrollY: '60vh',
+            scrollY: '53.5vh',
             scrollCollapse: true,
             ajax: {
                 url: ajaxUrl,
@@ -3201,15 +3493,8 @@ if (document.getElementById('table-po')) {
                 searchable: true
             },
             {
-                data: 'qty',
-                name: 'qty',
-                className: 'fw-medium text-center',
-                orderable: true,
-                searchable: true
-            },
-            {
-                data: 'invoice_details',
-                name: 'invoice_details',
+                data: 'relation_details',
+                name: 'relation_details',
                 className: 'fw-medium text-center',
                 orderable: true,
                 searchable: true
@@ -3237,7 +3522,7 @@ if (document.getElementById('table-po')) {
             }
             ],
             order: [
-                [2, 'desc']
+                [1, 'desc']
             ],
             pageLength: 5,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
@@ -3252,24 +3537,19 @@ if (document.getElementById('table-po')) {
                     }
                 });
 
-                $('#search-qty').on('keyup change', function () {
+                $('#search-relation_details').on('keyup change', function () {
                     if (api.column(2).search() !== this.value) {
                         api.column(2).search(this.value).draw();
                     }
                 });
-                $('#search-invoice').on('keyup change', function () {
+                $('#search-price').on('keyup change', function () {
                     if (api.column(3).search() !== this.value) {
                         api.column(3).search(this.value).draw();
                     }
                 });
-                $('#search-price').on('keyup change', function () {
+                $('#search-margin').on('keyup change', function () {
                     if (api.column(4).search() !== this.value) {
                         api.column(4).search(this.value).draw();
-                    }
-                });
-                $('#search-margin').on('keyup change', function () {
-                    if (api.column(5).search() !== this.value) {
-                        api.column(5).search(this.value).draw();
                     }
                 });
             }
@@ -3451,7 +3731,7 @@ if (document.getElementById('table-po')) {
                 if (e.key === 'Enter') fetchFilteredStats();
             });
     });
-}
+};
 
 if (document.getElementById('paymentTable')) {
     const tableEl = document.getElementById('paymentTable');
@@ -3487,6 +3767,9 @@ if (document.getElementById('paymentTable')) {
         serverSide: true,
         deferRender: true,
         fixedHeader: true,
+        scrollX: true,
+        scrollY: '56.5vh',
+        scrollCollapse: true,
         ajax: ajaxUrl,
         columns: [{
             data: 'DT_RowIndex',
@@ -3729,6 +4012,99 @@ if (document.getElementById('paymentTable')) {
 }
 
 if (document.getElementById('investment-table')) {
+    document.addEventListener('DOMContentLoaded', function () {
+        if (document.getElementById('truncate-investasi')) {
+            document.getElementById('truncate-investasi').addEventListener('click', async function () {
+                let validator = null;
+
+                await Swal.fire({
+                    template: '#truncate-form',
+
+                    didOpen: () => {
+                        validator = new JustValidate('#truncate-investasi-form', {
+                            successFieldCssClass: 'is-valid',
+                            errorFieldCssClass: 'is-invalid',
+                            errorLabelCssClass: 'invalid-feedback',
+                            successLabelCssClass: 'valid-feedback',
+                            validateBeforeSubmitting: true,
+                        });
+
+                        validator
+                            .addField('#swal-reason', [
+                                { rule: 'required', errorMessage: 'Alasan wajib diisi.' },
+                                { rule: 'minLength', value: 10, errorMessage: 'Alasan minimal 10 karakter.' },
+                            ], { successMessage: 'Alasan sudah benar' })
+                            .addField('#swal-confirm', [
+                                { rule: 'required', errorMessage: 'Konfirmasi wajib diisi.' },
+                                {
+                                    validator: (value) => value === 'SAYA YAKIN ATAS TINDAKAN INI',
+                                    errorMessage: 'Ketik tepat: SAYA YAKIN ATAS TINDAKAN INI',
+                                },
+                            ], { successMessage: 'Konfirmasi sudah benar' });
+                    },
+
+                    preConfirm: () => {
+                        if (!validator) {
+                            Swal.showValidationMessage('Validator belum siap, coba lagi.');
+                            return false;
+                        }
+                        return new Promise((resolve) => {
+                            validator.revalidate().then((isValid) => {
+                                if (!isValid) {
+                                    Swal.showValidationMessage('Harap isi semua field dengan benar.');
+                                    resolve(false);
+                                } else {
+                                    Swal.resetValidationMessage();
+                                    resolve(true);
+                                }
+                            });
+                        });
+                    },
+
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+
+                }).then(async (swalResult) => {
+                    if (!swalResult.isConfirmed) return;
+
+                    try {
+                        const formValues = {
+                            reason: document.querySelector('#swal-reason').value,
+                            confirm: document.querySelector('#swal-confirm').value,
+                        };
+
+                        const form = document.getElementById('truncate-investasi-form');
+
+                        const response = await fetch(form.action, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            },
+                            body: JSON.stringify(formValues),
+                        });
+
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            await Swal.fire({ title: 'Berhasil!', text: data.message ?? 'Seluruh PO berhasil dihapus.', icon: 'success', confirmButtonColor: '#198754' });
+                            window.location.reload();
+                        } else if (response.status === 422) {
+                            const errors = data.errors ? Object.values(data.errors).flat().join('<br>') : data.message ?? 'Validasi gagal.';
+                            Swal.fire({ title: 'Validasi Gagal!', html: errors, icon: 'warning', confirmButtonColor: '#ffc107' });
+                        } else {
+                            Swal.fire({ title: 'Gagal!', text: data.message ?? 'Terjadi kesalahan.', icon: 'error', confirmButtonColor: '#dc3545' });
+                        }
+
+                    } catch (error) {
+                        Swal.fire({ title: 'Koneksi Error!', text: 'Tidak dapat terhubung ke server.', icon: 'error', confirmButtonColor: '#dc3545' });
+                    }
+                });
+            });
+        }
+    });
+
     const tableEl = document.getElementById('investment-table');
     const ajaxUrl = tableEl.getAttribute('data-url');   // FIX #1
 
@@ -3801,134 +4177,169 @@ if (document.getElementById('investment-table')) {
 
     // Fire on page load
     updateCardStats();
+
     var role = parseInt($('#investment-table').data('role'));
+
     var columns = [
         { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
-        { data: 'investasi_details', name: 'investasi_details', orderable: false },
+        { data: 'investasi_details', name: 'investasi_details', orderable: true, searchable: true },
     ];
+
     if (role !== 2) {
         columns.push({ data: 'action', name: 'action', orderable: false, searchable: false });
     }
 
-    // ── DATATABLE INIT ────────────────────────────────────────
-    var table = $('#investment-table').DataTable({
-        processing: true,
-        serverSide: true,
-        deferRender: true,
-        fixedHeader: true,
-        ajax: {
-            url: ajaxUrl,
-            error: function (xhr) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Gagal Memuat Data',
-                    text: xhr.responseJSON?.message ?? 'Terjadi kesalahan saat mengambil data.',
-                    confirmButtonColor: '#696cff'
-                });
-            }
-        },
-        columns: columns,
-        pageLength: 5,
-        order: [
-            [1, 'desc']
-        ],
-        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
-    });
-    $('#investment-table tbody').on('click', '.btn-delete-inv', function () {
-        var url = $(this).data('url');
-        var name = $(this).data('name') || 'record ini';
-        var $btn = $(this);
+    var dt_table = $('#investment-table');
+    $('#investment-table thead').append(`
+        <tr class="column-search-row">
+            <th></th>
+            <th>
+                <input type="text" id="search-detail-investasi"
+                    class="form-control form-control-sm" 
+                    placeholder="Cari modal setor / margin tersedia / dana tersedia"
+                    style="min-width:180px;">
+            </th>
+            <th></th>
+        </tr>
+    `);
 
-        Swal.fire({
-            title: 'Hapus Investasi?',
-            html: 'Data <strong>' + name + '</strong> akan dihapus permanen.<br>Tindakan ini <u>tidak dapat dibatalkan</u>.',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ff3e1d',
-            cancelButtonColor: '#8592a3',
-            confirmButtonText: '<i class="ri-delete-bin-line me-1"></i>Ya, Hapus!',
-            cancelButtonText: 'Batal',
-            focusCancel: true,
-            customClass: {
-                confirmButton: 'btn btn-danger px-4',
-                cancelButton: 'btn btn-secondary px-4 ms-2'
-            },
-            buttonsStyling: false
-        }).then(function (result) {
-            if (!result.isConfirmed) return;
-            $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+    if (dt_table.length) {
 
-            $.ajax({
-                url: url,
-                type: 'DELETE',
-                success: function (res) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Terhapus!',
-                        text: res.message ?? 'Data berhasil dihapus.',
-                        timer: 1800,
-                        showConfirmButton: false,
-                        timerProgressBar: true
-                    });
-                    table.ajax.reload(null, false);
-                    updateCardStats(); // Re-animate after delete
-                },
+        // ── DATATABLE INIT ────────────────────────────────────────
+        var table = $('#investment-table').DataTable({
+            processing: true,
+            serverSide: true,
+            deferRender: true,
+            fixedHeader: true,
+            scrollX: true,
+            scrollY: '42vh',
+            scrollCollapse: true,
+            ajax: {
+                url: ajaxUrl,
                 error: function (xhr) {
                     Swal.fire({
                         icon: 'error',
-                        title: 'Gagal Menghapus!',
-                        text: xhr.responseJSON?.message ?? 'Terjadi kesalahan.',
+                        title: 'Gagal Memuat Data',
+                        text: xhr.responseJSON?.message ?? 'Terjadi kesalahan saat mengambil data.',
                         confirmButtonColor: '#696cff'
                     });
-                    $btn.prop('disabled', false).html('<i class="ri-delete-bin-line"></i>');
+                }
+            },
+            columns: columns,
+            pageLength: 5,
+            order: [
+                [1, 'desc']
+            ],
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
+            orderCellsTop: true,
+            initComplete: function () {
+                var api = this.api();
+
+                // ── Bind search input AFTER init ───────────────────
+                $('#search-detail-investasi').on('keyup change', function () {
+                    if (api.column(1).search() !== this.value) {
+                        api.column(1).search(this.value).draw();
+                    }
+                });
+            }
+        });
+
+        $('#investment-table tbody').on('click', '.btn-delete-inv', function () {
+            var url = $(this).data('url');
+            var name = $(this).data('name') || 'record ini';
+            var $btn = $(this);
+
+            Swal.fire({
+                title: 'Hapus Investasi?',
+                html: 'Data <strong>' + name + '</strong> akan dihapus permanen.<br>Tindakan ini <u>tidak dapat dibatalkan</u>.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ff3e1d',
+                cancelButtonColor: '#8592a3',
+                confirmButtonText: '<i class="ri-delete-bin-line me-1"></i>Ya, Hapus!',
+                cancelButtonText: 'Batal',
+                focusCancel: true,
+                customClass: {
+                    confirmButton: 'btn btn-danger px-4',
+                    cancelButton: 'btn btn-secondary px-4 ms-2'
+                },
+                buttonsStyling: false
+            }).then(function (result) {
+                if (!result.isConfirmed) return;
+                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+                $.ajax({
+                    url: url,
+                    type: 'DELETE',
+                    success: function (res) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Terhapus!',
+                            text: res.message ?? 'Data berhasil dihapus.',
+                            timer: 1800,
+                            showConfirmButton: false,
+                            timerProgressBar: true
+                        });
+                        table.ajax.reload(null, false);
+                        updateCardStats(); // Re-animate after delete
+                    },
+                    error: function (xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal Menghapus!',
+                            text: xhr.responseJSON?.message ?? 'Terjadi kesalahan.',
+                            confirmButtonColor: '#696cff'
+                        });
+                        $btn.prop('disabled', false).html('<i class="ri-delete-bin-line"></i>');
+                    }
+                });
+            });
+        });
+
+        // ── Delete Handler ─────────────────────────────────────────
+        $(document).on('click', '.btn-delete', function () {
+            const deleteUrl = $(this).data('url');
+
+            Swal.fire({
+                title: 'Hapus Investasi?',
+                text: `Apakah Anda yakin ingin menghapus investasi ini?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e6381a',
+                cancelButtonColor: '#6e7d88',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal',
+                reverseButtons: true,
+                showLoaderOnConfirm: true,
+                preConfirm: () => {
+                    return $.ajax({
+                        url: deleteUrl,
+                        type: 'DELETE',
+                        data: {
+                            _token: document.querySelector('meta[name="csrf-token"]').content
+                        }
+                    }).catch(error => {
+                        Swal.showValidationMessage(
+                            `Request failed: ${error.responseJSON?.message ?? error.statusText}`
+                        );
+                    });
+                },
+                allowOutsideClick: () => !Swal.isLoading()
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Dihapus!',
+                        text: 'Data Investasi berhasil dihapus.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    table.ajax.reload(null, false);
+                    updateCardStats();
                 }
             });
         });
-    });
-
-    // ── Delete Handler ─────────────────────────────────────────
-    $(document).on('click', '.btn-delete', function () {
-        const deleteUrl = $(this).data('url');
-
-        Swal.fire({
-            title: 'Hapus Investasi?',
-            text: `Apakah Anda yakin ingin menghapus investasi ini?`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#e6381a',
-            cancelButtonColor: '#6e7d88',
-            confirmButtonText: 'Ya, Hapus!',
-            cancelButtonText: 'Batal',
-            reverseButtons: true,
-            showLoaderOnConfirm: true,
-            preConfirm: () => {
-                return $.ajax({
-                    url: deleteUrl,
-                    type: 'DELETE',
-                    data: {
-                        _token: document.querySelector('meta[name="csrf-token"]').content
-                    }
-                }).catch(error => {
-                    Swal.showValidationMessage(
-                        `Request failed: ${error.responseJSON?.message ?? error.statusText}`
-                    );
-                });
-            },
-            allowOutsideClick: () => !Swal.isLoading()
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Dihapus!',
-                    text: 'Data Investasi berhasil dihapus.',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-                table.ajax.reload(null, false);
-                updateCardStats();
-            }
-        });
-    });
+    }
 }
 
 if (document.getElementById('customerTable')) {

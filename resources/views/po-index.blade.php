@@ -230,6 +230,9 @@
                 </div>
             </div>
             <div class="d-flex gap-2 align-items-center">
+                <button class="btn btn-danger btn-sm px-3" id="truncate-po">
+                    <i class="ri-delete-bin-5-line me-1"></i> Hapus Seluruh PO
+                </button>
                 <a href="{{ route('po.create') }}" class="btn btn-primary btn-sm px-3">
                     <i class="ri-add-line me-1"></i> Buat PO Baru
                 </a>
@@ -250,8 +253,7 @@
                 <tr>
                     <th class="text-center" style="width: 50px;">No</th>
                     <th class="text-center">Detail PO</th>
-                    <th class="text-center">Detail Delivery</th>
-                    <th class="text-center">Detail Invoice</th>
+                    <th class="text-center">Delivery / Invoice / Payment</th>
                     <th class="text-center">Detail Harga PO</th>
                     <th class="text-center">Detail Margin PO</th>
                     <th class="text-center">Aksi</th>
@@ -260,4 +262,6 @@
         </table>
     </div>
 </div>
+
+@include('truncate-alert')
 @endsection

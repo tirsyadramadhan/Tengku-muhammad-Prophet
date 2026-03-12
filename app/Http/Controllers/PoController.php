@@ -1676,44 +1676,16 @@ class PoController extends Controller
                         </div>
                         ';
                 })
-                ->editColumn('qty', function ($row) {
+                ->editColumn('relation_details', function ($row) {
+                    //DELIVERIES
+
                     $totalQty      = (int) $row->qty ?? 0;
                     $delivered     = (int) $row->total_delivered ?? 0;
                     $remaining     = (int) $totalQty - $delivered;
                     $percentage    = $totalQty > 0 ? round(($delivered / $totalQty) * 100) : 0;
 
-                    if ($remaining <= 0) {
-                        $statusLabel = '<span class="badge bg-success text-white fw-bold">Fully Delivered</span>';
-                        $barClass    = 'bg-success';
-                    } elseif ($remaining === $totalQty) {
-                        $statusLabel = '<span class="badge bg-danger text-white fw-bold">Not Delivered</span>';
-                        $barClass    = 'bg-dark';
-                    } else {
-                        $statusLabel = '<span class="badge bg-warning text-dark fw-bold">Partially Delivered</span>';
-                        $barClass    = 'bg-warning';
-                    }
+                    //INVOICES
 
-                    return '
-                        <div class="d-flex flex-column gap-1" style="min-width: 140px;">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <small class="text-muted fw-semibold">' . $delivered . ' / ' . $totalQty . ' Unit</small>
-                                <small class="fw-bold">' . $percentage . '%</small>
-                            </div>
-
-                            <div class="progress" style="height: 8px; border-radius: 999px;">
-                                <div class="progress-bar ' . $barClass . '"
-                                    role="progressbar"
-                                    style="width: ' . $percentage . '%; border-radius: 999px; transition: width 0.4s ease;"
-                                    aria-valuenow="' . $percentage . '"
-                                    aria-valuemin="0"
-                                    aria-valuemax="100">
-                                </div>
-                            </div>
-                            ' . $statusLabel . '
-                        </div>
-                    ';
-                })
-                ->addColumn('invoice_details', function ($row) {
                     $invoices         = $row->invoices ?? collect();
                     $maxInvoice       = $row->deliveries->count() ?? 0; // or whatever your maximum is
                     $maxPaid          = $invoices->count(); // max paid = total invoices
@@ -1748,8 +1720,39 @@ class PoController extends Controller
                         $paidBar   = 'bg-warning';
                     }
 
+                    if ($remaining <= 0) {
+                        $statusLabel = '<span class="badge bg-success text-white fw-bold">Fully Delivered</span>';
+                        $barClass    = 'bg-success';
+                    } elseif ($remaining === $totalQty) {
+                        $statusLabel = '<span class="badge bg-danger text-white fw-bold">Not Delivered</span>';
+                        $barClass    = 'bg-dark';
+                    } else {
+                        $statusLabel = '<span class="badge bg-warning text-dark fw-bold">Partially Delivered</span>';
+                        $barClass    = 'bg-warning';
+                    }
+
                     return '
-                        <div class="d-flex flex-column gap-3" style="min-width: 180px;">
+                        <div class="d-flex flex-column gap-1">
+                            <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted fw-semibold">
+                                        <i class="ri-truck-line me-1"></i>Delivery
+                                    </small>
+                                <small class="text-muted fw-semibold">' . $delivered . ' / ' . $totalQty . ' Unit</small>
+                                <small class="fw-bold">' . $percentage . '%</small>
+                            </div>
+
+                            <div class="progress" style="height: 8px; border-radius: 999px;">
+                                <div class="progress-bar ' . $barClass . '"
+                                    role="progressbar"
+                                    style="width: ' . $percentage . '%; border-radius: 999px; transition: width 0.4s ease;"
+                                    aria-valuenow="' . $percentage . '"
+                                    aria-valuemin="0"
+                                    aria-valuemax="100">
+                                </div>
+                            </div>
+                            ' . $statusLabel . '
+
+                            <div class="border-top my-1"></div>
 
                             <!-- Invoice Progress -->
                             <div class="d-flex flex-column gap-1">
@@ -1792,7 +1795,6 @@ class PoController extends Controller
                                 </div>
                                 ' . $paidLabel . '
                             </div>
-
                         </div>
                     ';
                 })
@@ -1863,63 +1865,12 @@ class PoController extends Controller
                         }
                     });
                 })
-                ->orderColumn('qty', 'total_delivered $1')
-                ->filterColumn('qty', function ($query, $keyword) {
+                ->orderColumn('relation_details', 'total_delivered $1')
+                ->filterColumn('relation_details', function ($query, $keyword) {
                     $keyword = trim($keyword);
-
-                    // Strip " Unit" suffix if present
                     $numericKeyword = preg_replace('/\s*unit\s*/i', '', $keyword);
+                    $keyword_lower = strtolower($keyword);
 
-                    // Check if searching "X / Y" format (delivered / qty)
-                    if (str_contains($numericKeyword, '/')) {
-                        [$searchDelivered, $searchQty] = array_map('trim', explode('/', $numericKeyword));
-                        $query->where(function ($q) use ($searchDelivered, $searchQty) {
-                            $q->where('total_delivered', 'like', "%{$searchDelivered}%")
-                                ->where('qty', 'like', "%{$searchQty}%");
-                        });
-                        return;
-                    }
-
-                    $keyword_lower = strtolower(trim($keyword));
-
-                    // ── Fully Delivered: total_delivered >= qty
-                    if (str_contains('fully delivered', $keyword_lower)) {
-                        $query->whereRaw('total_delivered >= qty');
-                        return;
-                    }
-
-                    // ── Not Delivered: total_delivered = 0
-                    if (str_contains('not delivered', $keyword_lower)) {
-                        $query->where('total_delivered', 0);
-                        return;
-                    }
-
-                    $query->where(function ($q) use ($numericKeyword, $keyword) {
-                        // Search qty
-                        $q->where('qty', 'like', "%{$numericKeyword}%")
-
-                            // Search total_delivered
-                            ->orWhere('total_delivered', 'like', "%{$numericKeyword}%")
-
-                            // Search remaining (qty - total_delivered)
-                            ->orWhereRaw("(qty - total_delivered) like ?", ["%{$numericKeyword}%"])
-
-                            // Search percentage formula
-                            ->orWhereRaw("
-                                CASE WHEN qty > 0 
-                                THEN ROUND((total_delivered / qty) * 100) 
-                                ELSE 0 END 
-                                like ?", ["%{$numericKeyword}%"])
-
-                            // Search "X / Y Unit" format
-                            ->orWhereRaw("CONCAT(total_delivered, ' / ', qty, ' Unit') like ?", ["%{$keyword}%"])
-
-                            // Search remaining in "X / Y" format
-                            ->orWhereRaw("CONCAT((qty - total_delivered), ' / ', qty, ' Unit') like ?", ["%{$keyword}%"]);
-                    });
-                })
-                ->filterColumn('invoice_details', function ($qInvoice, $keyword) {
-                    $keyword_lower = strtolower(trim($keyword));
                     $invoiceCount = "
                         (SELECT COUNT(*) FROM tbl_invoice 
                         WHERE tbl_invoice.delivery_id IN (
@@ -1936,101 +1887,135 @@ class PoController extends Controller
                         ) AND tbl_invoice.status_invoice = 1)
                     ";
 
+                    // ── Delivery: "X / Y" format
+                    if (str_contains($numericKeyword, '/') && substr_count($numericKeyword, '/') === 1) {
+                        [$searchDelivered, $searchQty] = array_map('trim', explode('/', $numericKeyword));
+                        // Only treat as delivery X/Y if it doesn't match invoice X/Y context
+                        $query->where(function ($q) use ($searchDelivered, $searchQty) {
+                            $q->where('total_delivered', 'like', "%{$searchDelivered}%")
+                                ->where('qty', 'like', "%{$searchQty}%");
+                        });
+                        return;
+                    }
+
+                    // ── Fully Delivered
+                    if (str_contains('fully delivered', $keyword_lower)) {
+                        $query->whereRaw('total_delivered >= qty');
+                        return;
+                    }
+
+                    // ── Not Delivered
+                    if (str_contains('not delivered', $keyword_lower)) {
+                        $query->where('total_delivered', 0);
+                        return;
+                    }
+
                     // ── Fully Invoiced
                     if (str_contains('fully invoiced', $keyword_lower)) {
-                        $qInvoice->whereRaw("{$invoiceCount} >= {$deliveryCount}")
+                        $query->whereRaw("{$invoiceCount} >= {$deliveryCount}")
                             ->whereRaw("{$invoiceCount} > 0");
                         return;
                     }
 
                     // ── Not Invoiced
                     if (str_contains('not invoiced', $keyword_lower)) {
-                        $qInvoice->whereRaw("{$invoiceCount} = 0");
+                        $query->whereRaw("{$invoiceCount} = 0");
                         return;
                     }
 
                     // ── Partially Invoiced
                     if (str_contains('partially invoiced', $keyword_lower)) {
-                        $qInvoice->whereRaw("{$invoiceCount} > 0")
+                        $query->whereRaw("{$invoiceCount} > 0")
                             ->whereRaw("{$invoiceCount} < {$deliveryCount}");
                         return;
                     }
 
                     // ── Fully Paid
                     if (str_contains('fully paid', $keyword_lower)) {
-                        $qInvoice->whereRaw("{$paidCount} >= {$invoiceCount}")
+                        $query->whereRaw("{$paidCount} >= {$invoiceCount}")
                             ->whereRaw("{$invoiceCount} > 0");
                         return;
                     }
 
                     // ── Not Paid
                     if (str_contains('not paid', $keyword_lower)) {
-                        $qInvoice->whereRaw("{$paidCount} = 0");
+                        $query->whereRaw("{$paidCount} = 0");
                         return;
                     }
 
                     // ── Partially Paid
                     if (str_contains('partially paid', $keyword_lower)) {
-                        $qInvoice->whereRaw("{$paidCount} > 0")
+                        $query->whereRaw("{$paidCount} > 0")
                             ->whereRaw("{$paidCount} < {$invoiceCount}");
                         return;
                     }
 
-                    // ── Numeric / X/Y format
-                    $numericKeyword = trim(preg_replace('/\s*/i', '', $keyword));
+                    $numericKeyword = trim(preg_replace('/\s+/', '', $numericKeyword));
 
-                    if (str_contains($numericKeyword, '/')) {
-                        [$searchCount, $searchMax] = array_map('trim', explode('/', $numericKeyword));
-                        $qInvoice->whereRaw("{$invoiceCount} like ?", ["%{$searchCount}%"])
-                            ->whereRaw("{$deliveryCount} like ?", ["%{$searchMax}%"]);
-                        return;
-                    }
+                    $query->where(function ($q) use ($numericKeyword, $keyword, $invoiceCount, $deliveryCount, $paidCount) {
 
-                    $qInvoice->where(function ($q) use ($numericKeyword, $invoiceCount, $deliveryCount, $paidCount) {
-                        $q->whereRaw("{$invoiceCount} like ?", ["%{$numericKeyword}%"])
+                        // ── Delivery fields
+                        $q->where('qty', 'like', "%{$numericKeyword}%")
+                            ->orWhere('total_delivered', 'like', "%{$numericKeyword}%")
+                            ->orWhereRaw("(qty - total_delivered) like ?", ["%{$numericKeyword}%"])
+                            ->orWhereRaw("
+                CASE WHEN qty > 0 
+                THEN ROUND((total_delivered / qty) * 100) 
+                ELSE 0 END like ?", ["%{$numericKeyword}%"])
+                            ->orWhereRaw("CONCAT(total_delivered, ' / ', qty, ' Unit') like ?", ["%{$keyword}%"])
+                            ->orWhereRaw("CONCAT((qty - total_delivered), ' / ', qty, ' Unit') like ?", ["%{$keyword}%"])
+
+                            // ── Invoice fields
+                            ->orWhereRaw("{$invoiceCount} like ?", ["%{$numericKeyword}%"])
+                            ->orWhereRaw("CONCAT({$invoiceCount}, ' / ', {$deliveryCount}) like ?", ["%{$keyword}%"])
+                            ->orWhereRaw("
+                CASE WHEN {$deliveryCount} > 0
+                THEN ROUND({$invoiceCount} * 100.0 / {$deliveryCount})
+                ELSE 0 END like ?", ["%{$numericKeyword}%"])
+
+                            // ── Payment fields
                             ->orWhereRaw("{$paidCount} like ?", ["%{$numericKeyword}%"])
+                            ->orWhereRaw("CONCAT({$paidCount}, ' / ', {$invoiceCount}) like ?", ["%{$keyword}%"])
                             ->orWhereRaw("
-                                CASE WHEN {$deliveryCount} > 0
-                                THEN ROUND({$invoiceCount} * 100.0 / {$deliveryCount})
-                                ELSE 0 END like ?", ["%{$numericKeyword}%"])
-                            ->orWhereRaw("
-                                CASE WHEN {$invoiceCount} > 0
-                                THEN ROUND({$paidCount} * 100.0 / {$invoiceCount})
-                                ELSE 0 END like ?", ["%{$numericKeyword}%"]);
+                CASE WHEN {$invoiceCount} > 0
+                THEN ROUND({$paidCount} * 100.0 / {$invoiceCount})
+                ELSE 0 END like ?", ["%{$numericKeyword}%"]);
                     });
-                })
-                ->orderColumn('invoice_details', function ($qInvoice, $direction) {
-                    $qInvoice->orderByRaw("
-                        (SELECT COUNT(*) FROM tbl_invoice 
-                        WHERE tbl_invoice.delivery_id IN (
-                            SELECT delivery_id FROM tbl_delivery WHERE tbl_delivery.po_id = tbl_po.po_id
-                        )) {$direction}
-                    ");
                 })
                 ->orderColumn('price_references', 'total $1')
                 ->filterColumn('price_references', function ($qPrice, $keyword) {
-                    $numericClean = preg_replace('/[^0-9]/', '', $keyword);
+                    $numericClean  = preg_replace('/[^0-9]/', '', $keyword);
                     $keyword_lower = strtolower(trim($keyword));
 
-                    if (!empty($numericClean)) {
-                        $qPrice->where(function ($q) use ($numericClean) {
+                    $hasUnit = str_contains($keyword_lower, 'unit');
+                    $hasRp   = str_contains($keyword_lower, 'rp');
 
-                            // Total Harga PO
-                            $q->orWhereRaw("CAST(total AS CHAR) like ?", ["%{$numericClean}%"])
+                    if (empty($numericClean)) return;
 
-                                // Harga Per Unit
-                                ->orWhereRaw("CAST(harga AS CHAR) like ?", ["%{$numericClean}%"])
+                    $qPrice->where(function ($q) use ($numericClean, $hasUnit, $hasRp) {
 
-                                // Quantity
-                                ->orWhereRaw("CAST(qty AS CHAR) like ?", ["%{$numericClean}%"])
+                        // ── "110 Unit" → search ONLY qty
+                        if ($hasUnit) {
+                            $q->whereRaw("CAST(tbl_po.qty AS CHAR) like ?", ["%{$numericClean}%"]);
+                            return;
+                        }
 
-                                // Modal PO
-                                ->orWhereRaw("CAST(modal_awal AS CHAR) like ?", ["%{$numericClean}%"])
+                        // ── "Rp 2.321.000.000" → search ONLY money fields
+                        if ($hasRp) {
+                            $q->whereRaw("CAST(tbl_po.total AS CHAR) like ?",      ["%{$numericClean}%"])
+                                ->orWhereRaw("CAST(tbl_po.harga AS CHAR) like ?",      ["%{$numericClean}%"])
+                                ->orWhereRaw("CAST(tbl_po.modal_awal AS CHAR) like ?", ["%{$numericClean}%"])
+                                ->orWhereRaw("CAST(CASE WHEN tbl_po.qty > 0 THEN tbl_po.modal_awal / tbl_po.qty ELSE 0 END AS CHAR) like ?", ["%{$numericClean}%"]);
+                            return;
+                        }
 
-                                // Modal PO per unit
-                                ->orWhereRaw("CAST(CASE WHEN qty > 0 THEN modal_awal / qty ELSE 0 END AS CHAR) like ?", ["%{$numericClean}%"]);
-                        });
-                    }
+                        // ── Plain number → search everything
+                        $q->whereRaw("CAST(tbl_po.total AS CHAR) like ?",      ["%{$numericClean}%"])
+                            ->orWhereRaw("CAST(tbl_po.harga AS CHAR) like ?",      ["%{$numericClean}%"])
+                            ->orWhereRaw("CAST(tbl_po.qty AS CHAR) like ?",        ["%{$numericClean}%"])
+                            ->orWhereRaw("CAST(tbl_po.modal_awal AS CHAR) like ?", ["%{$numericClean}%"])
+                            ->orWhereRaw("CAST(CASE WHEN tbl_po.qty > 0 THEN tbl_po.modal_awal / tbl_po.qty ELSE 0 END AS CHAR) like ?", ["%{$numericClean}%"]);
+                    });
                 })
                 ->orderColumn('margin_references', 'margin $1')
                 ->filterColumn('margin_references', function ($qMargin, $keyword) {
@@ -2103,7 +2088,7 @@ class PoController extends Controller
                         return;
                     }
                 })
-                ->rawColumns(['detail_po', 'action', 'price_references', 'margin_references', 'qty', 'invoice_details'])
+                ->rawColumns(['detail_po', 'action', 'price_references', 'margin_references', 'relation_details', 'invoice_details'])
                 ->with('totals', [
                     'qty'       => $totals->qty       ?? 0,
                     'total'     => $totals->total     ?? 0,
@@ -2398,17 +2383,21 @@ class PoController extends Controller
     public function truncate(Request $request)
     {
         $request->validate([
-            'confirm' => ['required', 'in:SAYA YAKIN ATAS TINDAKAN INI'],
+            'confirm' => ['required', 'string', function ($attribute, $value, $fail) {
+                if ($value !== "SAYA YAKIN ATAS TINDAKAN INI") {
+                    $fail('Konfirmasi tidak sesuai. Ketik tepat: SAYA YAKIN ATAS TINDAKAN INI');
+                }
+            }],
         ]);
 
         try {
             DB::statement('SET FOREIGN_KEY_CHECKS=0;');
 
             // Order matters — child tables first, parent last
-            DB::table('payments')->truncate();
-            DB::table('invoices')->truncate();
-            DB::table('deliveries')->truncate();
-            DB::table('pos')->truncate();
+            DB::table('tbl_payment')->truncate();
+            DB::table('tbl_invoice')->truncate();
+            DB::table('tbl_delivery')->truncate();
+            DB::table('tbl_po')->truncate();
 
             DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
@@ -2471,31 +2460,11 @@ class PoController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'file'        => 'required|mimes:xlsx,xls,csv',
+            'file' => 'required|mimes:xlsx,xls,csv|max:5120',
         ]);
 
         try {
             Excel::import(new PoImport(1), $request->file('file'));
-            // $pos = Po::with(['deliveries.invoice'])
-            //     ->where("status", "!=", 0)
-            //     ->where("status", "!=", 8)
-            //     ->get();
-            // if ($pos->isNotEmpty()) {
-            //     $pos->each(function ($po) {
-            //         $po->syncStatus();
-
-            //         if ($po->deliveries->isNotEmpty()) {
-            //             $deliveries = $po->deliveries;
-            //             foreach ($deliveries as $delivery) {
-            //                 $delivery->syncInvoicedStatus();
-
-            //                 if ($delivery->invoice) {
-            //                     $delivery->invoice->syncInvoiceStatus();
-            //                 }
-            //             }
-            //         }
-            //     });
-            // }
             $this->logImport();
             return response()->json(['success' => true, 'message' => 'Data berhasil diimport.']);
         } catch (\Exception $e) {

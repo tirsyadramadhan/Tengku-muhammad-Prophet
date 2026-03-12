@@ -94,15 +94,15 @@ class PoImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
                         'qty_delivered'             => $row['delivered'],
                         'delivery_time_estimation'  => \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($row['delivered_at']),
                         'delivered_at'               => \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($row['delivered_at']),
-                        'delivered_status'           => 1,
-                        'invoiced_status'            => 1,
+                        'delivered_status'           => $isClosed ? 1 : 0,
+                        'invoiced_status'            => $row['delivered'] ? 1 : 0,
                         'input_by'                   => Auth::id() ?? 1,
                     ]);
                 }
 
                 // Create Invoice for Delivery
                 $invoice = null;
-                if (!empty($row['invoiced_at']) && $delivery) {
+                if ($delivery && !empty($row['invoiced_at'])) {
                     $invoice = Invoice::create([
                         'nomor_invoice'  => $nomorInvoice,
                         'delivery_id'    => $delivery->delivery_id,
@@ -124,7 +124,7 @@ class PoImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
 
                     $payment = Payment::create([
                         'invoice_id'              => $invoice->invoice_id,
-                        'payment_date'            => null,
+                        'payment_date'            => $estimationDate,
                         'amount'                  => $row['total'],
                         'description'             => $row['catatan'],
                         'metode_bayar'            => null,

@@ -756,45 +756,105 @@ class DeliveryController extends Controller
                     $keyword_lower = strtolower(trim($keyword));
 
                     // ── Delivered Status
-                    if (str_contains('sudah tiba tujuan', $keyword_lower)) {
+                    if (
+                        str_contains('sudah tiba tujuan', $keyword_lower) ||
+                        str_contains('tiba', $keyword_lower) ||
+                        str_contains('delivered', $keyword_lower) ||
+                        str_contains('sudah sampai', $keyword_lower) ||
+                        str_contains('sampai', $keyword_lower) ||
+                        str_contains('selesai', $keyword_lower)
+                    ) {
                         $data->where('delivered_status', 1);
                         return;
                     }
 
-                    if (str_contains('dalam perjalanan', $keyword_lower)) {
+                    if (
+                        str_contains('dalam perjalanan', $keyword_lower) ||
+                        str_contains('belum tiba', $keyword_lower) ||
+                        str_contains('belum sampai', $keyword_lower) ||
+                        str_contains('on the way', $keyword_lower) ||
+                        str_contains('on delivery', $keyword_lower) ||
+                        str_contains('dikirim', $keyword_lower) ||
+                        str_contains('pengiriman', $keyword_lower)
+                    ) {
                         $data->where('delivered_status', 0);
                         return;
                     }
 
                     // ── Invoiced Status
-                    if (str_contains('sudah di invoice', $keyword_lower)) {
+                    if (
+                        str_contains('sudah di invoice', $keyword_lower) ||
+                        str_contains('invoiced', $keyword_lower) ||
+                        str_contains('sudah invoice', $keyword_lower) ||
+                        str_contains('sudah diinvoice', $keyword_lower) ||
+                        str_contains('telah diinvoice', $keyword_lower) ||
+                        str_contains('ada invoice', $keyword_lower)
+                    ) {
                         $data->where('invoiced_status', 1);
                         return;
                     }
 
-                    if (str_contains('belum di invoice', $keyword_lower)) {
+                    if (
+                        str_contains('belum di invoice', $keyword_lower) ||
+                        str_contains('not invoiced', $keyword_lower) ||
+                        str_contains('belum invoice', $keyword_lower) ||
+                        str_contains('belum diinvoice', $keyword_lower) ||
+                        str_contains('tidak ada invoice', $keyword_lower) ||
+                        str_contains('no invoice', $keyword_lower)
+                    ) {
                         $data->where('invoiced_status', 0);
                         return;
                     }
 
-                    // ── Estimation overdue / on the way
-                    if (str_contains('sudah lewat estimasi', $keyword_lower)) {
+                    // ── Estimation overdue
+                    if (
+                        str_contains('sudah lewat estimasi', $keyword_lower) ||
+                        str_contains('lewat estimasi', $keyword_lower) ||
+                        str_contains('overdue', $keyword_lower) ||
+                        str_contains('terlambat', $keyword_lower) ||
+                        str_contains('telat', $keyword_lower)
+                    ) {
                         $data->where('delivered_status', 0)
                             ->whereRaw("delivery_time_estimation < NOW()");
                         return;
                     }
 
-                    if (str_contains('sedang dalam perjalanan', $keyword_lower)) {
+                    // ── Still on the way within estimation
+                    if (
+                        str_contains('sedang dalam perjalanan', $keyword_lower) ||
+                        str_contains('on schedule', $keyword_lower) ||
+                        str_contains('tepat waktu', $keyword_lower) ||
+                        str_contains('masih dalam estimasi', $keyword_lower)
+                    ) {
                         $data->where('delivered_status', 0)
                             ->whereRaw("delivery_time_estimation >= NOW()");
                         return;
                     }
 
-                    // ── Date search — e.g. "11 Mar 2026" or "2026-03-11"
-                    $data->where(function ($q) use ($keyword) {
+                    // ── Date search — "02 Feb 2026", "2 February 2026", "2026-02-02"
+                    $parsedDate = null;
+                    try {
+                        $parsedDate = \Carbon\Carbon::parse($keyword)->format('Y-m-d');
+                    } catch (\Exception $e) {
+                        $parsedDate = null;
+                    }
+
+                    $data->where(function ($q) use ($keyword, $parsedDate) {
+                        // ✅ "02 Feb 2026" — zero-padded day + short month
                         $q->whereRaw("DATE_FORMAT(delivery_time_estimation, '%d %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(delivery_time_estimation, '%Y-%m-%d') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(delivery_time_estimation, '%d %M %Y') like ?", ["%{$keyword}%"]);
+                            // "2 Feb 2026" — non-padded day + short month
+                            ->orWhereRaw("DATE_FORMAT(delivery_time_estimation, '%e %b %Y') like ?", ["%{$keyword}%"])
+                            // "02 February 2026" — zero-padded day + full month
+                            ->orWhereRaw("DATE_FORMAT(delivery_time_estimation, '%d %M %Y') like ?", ["%{$keyword}%"])
+                            // "2 February 2026" — non-padded day + full month
+                            ->orWhereRaw("DATE_FORMAT(delivery_time_estimation, '%e %M %Y') like ?", ["%{$keyword}%"])
+                            // "2026-02-02" — ISO format
+                            ->orWhereRaw("DATE_FORMAT(delivery_time_estimation, '%Y-%m-%d') like ?", ["%{$keyword}%"]);
+
+                        // Carbon-parsed exact date match
+                        if ($parsedDate) {
+                            $q->orWhereRaw("DATE(delivery_time_estimation) = ?", [$parsedDate]);
+                        }
                     });
                 })
                 ->rawColumns(['detail_po', 'status', 'action', 'delivery_details'])

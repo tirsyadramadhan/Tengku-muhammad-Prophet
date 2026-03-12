@@ -21,7 +21,7 @@ class InvestasiController extends Controller
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            $investments = Investasi::get();
+            $investments = Investasi::query();
             $user = Auth::user();
 
             $table = DataTables::of($investments)
@@ -119,6 +119,68 @@ class InvestasiController extends Controller
                             </div>
                         </div>
                         HTML;
+                })
+                ->orderColumn('investasi_details', function ($investments, $order) {
+                    $investments->orderBy('dana_tersedia', $order);
+                })
+
+                ->filterColumn('investasi_details', function ($investments, $keyword) {
+                    $keyword = trim($keyword);
+
+                    // Strip "Rp " prefix and thousand separators to get raw numeric keyword
+                    $numericKeyword = preg_replace('/[Rp\s\.]+/', '', $keyword);
+
+                    // ── Date formats: 2026-07-25 or 25 Jul 2026
+                    $dateFromISO = null;
+                    $dateFromIndo = null;
+
+                    // Match YYYY-MM-DD
+                    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $keyword)) {
+                        $dateFromISO = $keyword;
+                    }
+
+                    // Match "25 Jul 2026" or "25 July 2026"
+                    if (preg_match('/^\d{1,2}\s+\w+\s+\d{4}$/', $keyword)) {
+                        try {
+                            $dateFromIndo = \Carbon\Carbon::parse($keyword)->format('Y-m-d');
+                        } catch (\Exception $e) {
+                            $dateFromIndo = null;
+                        }
+                    }
+
+                    if ($dateFromISO || $dateFromIndo) {
+                        $date = $dateFromISO ?? $dateFromIndo;
+                        $investments->whereDate('tgl_investasi', $date);
+                        return;
+                    }
+
+                    // ── Numeric / Rp keyword — search all money fields
+                    if ($numericKeyword !== '') {
+                        $investments->where(function ($q) use ($numericKeyword, $keyword) {
+                            $q
+                                // Raw numeric match
+                                ->where('modal_setor_awal',  'like', "%{$numericKeyword}%")
+                                ->orWhere('modal_po_baru',   'like', "%{$numericKeyword}%")
+                                ->orWhere('margin',          'like', "%{$numericKeyword}%")
+                                ->orWhere('pencairan_modal', 'like', "%{$numericKeyword}%")
+                                ->orWhere('margin_cair',     'like', "%{$numericKeyword}%")
+                                ->orWhere('pengembalian_dana', 'like', "%{$numericKeyword}%")
+                                ->orWhere('dana_tersedia',   'like', "%{$numericKeyword}%")
+
+                                // Formatted "Rp 900.000.000" match
+                                ->orWhereRaw("REPLACE(FORMAT(modal_setor_awal,  0), ',', '.') like ?", ["%{$numericKeyword}%"])
+                                ->orWhereRaw("REPLACE(FORMAT(modal_po_baru,    0), ',', '.') like ?", ["%{$numericKeyword}%"])
+                                ->orWhereRaw("REPLACE(FORMAT(margin,           0), ',', '.') like ?", ["%{$numericKeyword}%"])
+                                ->orWhereRaw("REPLACE(FORMAT(pencairan_modal,  0), ',', '.') like ?", ["%{$numericKeyword}%"])
+                                ->orWhereRaw("REPLACE(FORMAT(margin_cair,      0), ',', '.') like ?", ["%{$numericKeyword}%"])
+                                ->orWhereRaw("REPLACE(FORMAT(pengembalian_dana,0), ',', '.') like ?", ["%{$numericKeyword}%"])
+                                ->orWhereRaw("REPLACE(FORMAT(dana_tersedia,    0), ',', '.') like ?", ["%{$numericKeyword}%"]);
+                        });
+                        return;
+                    }
+
+                    // ── Fallback: raw keyword against date
+                    $investments->where('tgl_investasi', 'like', "%{$keyword}%");
                 });
 
             $table->addColumn('action', function ($inv) {
@@ -361,5 +423,30 @@ class InvestasiController extends Controller
             'totalPenarikan'   => (float) $totalPenarikan,
             'danaTersedia'     => (float) $danaTersedia,
         ]);
+    }
+
+    public function truncate(Request $request)
+    {
+        $request->validate([
+            'confirm' => ['required', 'string', function ($attribute, $value, $fail) {
+                if ($value !== "SAYA YAKIN ATAS TINDAKAN INI") {
+                    $fail('Konfirmasi tidak sesuai. Ketik tepat: SAYA YAKIN ATAS TINDAKAN INI');
+                }
+            }],
+        ]);
+
+        try {
+            DB::table('tbl_investasi')->truncate();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Semua data investasi berhasil dikosongkan.',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengosongkan data: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

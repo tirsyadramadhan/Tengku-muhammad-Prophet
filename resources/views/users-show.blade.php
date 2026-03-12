@@ -103,7 +103,7 @@ $profilePic = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($pictu
                     <div class="card-body pt-0" bis_skin_checked="1">
                         <ul class="timeline card-timeline mb-0 list-group">
                             @foreach ($user->activities()->latest()->take(10)->get() as $activity)
-                            <li class="timeline-item timeline-item-transparent list-group-item">
+                            <li class="list-group-item active">
                                 <div class="timeline-event">
                                     <div class="timeline-header mb-2">
                                         @if ($activity->action == "create" && $activity->model == "App\Models\Investasi")
@@ -120,17 +120,25 @@ $profilePic = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($pictu
                                         'dana_tersedia' => 'Dana Tersedia',
                                         ];
                                         @endphp
+
                                         <h6 class="mb-1">Investasi ditambahkan dengan rincian: </h6>
-                                        <ul class="list-group">
-                                            @foreach ($data as $key => $value)
-                                            @continue(in_array($key, $skip))
-                                            <li class="list-group-item">
-                                                {{ $labels[$key] ?? $key }}: <span class="{{ $value < 0 ? 'text-danger' : 'text-success' }}">
-                                                    Rp {{ number_format($value, 0, ',', '.') }}
-                                                </span>
-                                            </li>
-                                            @endforeach
-                                        </ul>
+                                        <table class="table table-sm table-bordered table-dark mb-0">
+                                            <tbody>
+                                                @foreach ($data as $key => $value)
+                                                @continue(in_array($key, $skip))
+                                                <tr>
+                                                    <td style="font-size:11px; color:#fff; white-space:nowrap; width:1%; padding: 3px 8px;">
+                                                        {{ $labels[$key] ?? $key }}
+                                                    </td>
+                                                    <td style="font-size:11px; font-weight:600; white-space:nowrap; padding: 3px 8px;">
+                                                        <span class="{{ $value < 0 ? 'text-danger' : 'text-success' }}">
+                                                            Rp {{ number_format($value, 0, ',', '.') }}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
                                         <div class="d-flex justify-content-between align-items-center mt-3">
                                             <small class="text-muted">{{ $activity->created_at->format('d M Y H:i') }}</small>
                                             <small class="text-body-secondary">{{ $activity->created_at->diffForHumans() }}</small>
@@ -151,22 +159,29 @@ $profilePic = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($pictu
                                         'tambahan_margin' => 'Tambahan Margin',
                                         ];
                                         @endphp
+
                                         <h6 class="mb-1">PO ditambahkan dengan rincian: </h6>
-                                        <ul class="list-group">
-                                            @foreach ($data as $key => $value)
-                                            @continue(in_array($key, $skip))
-                                            <li class="list-group-item">
-                                                {{ $labels[$key] ?? $key }}:
-                                                @if (in_array($key, $currencyFields))
-                                                <span class="{{ $value < 0 ? 'text-danger' : 'text-success' }}">
-                                                    Rp {{ number_format($value, 0, ',', '.') }}
-                                                </span>
-                                                @else
-                                                <span>{{ $value ?? '-' }}</span>
-                                                @endif
-                                            </li>
-                                            @endforeach
-                                        </ul>
+                                        <table class="table table-sm table-bordered table-dark mb-0" style="table-layout:auto; width:auto;">
+                                            <tbody>
+                                                @foreach ($data as $key => $value)
+                                                @continue(in_array($key, $skip))
+                                                <tr>
+                                                    <td style="font-size:11px; color:#fff; white-space:nowrap; width:1%; padding:3px 8px;">
+                                                        {{ $labels[$key] ?? $key }}
+                                                    </td>
+                                                    <td style="font-size:11px; font-weight:600; white-space:nowrap; width:1%; padding:3px 8px;">
+                                                        @if (in_array($key, $currencyFields))
+                                                        <span class="{{ $value < 0 ? 'text-danger' : 'text-success' }}">
+                                                            Rp {{ number_format($value, 0, ',', '.') }}
+                                                        </span>
+                                                        @else
+                                                        <span>{{ $value ?? '-' }}</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
                                         <div class="d-flex justify-content-between align-items-center mt-3">
                                             <small class="text-muted">{{ $activity->created_at->format('d M Y H:i') }}</small>
                                             <small class="text-body-secondary">{{ $activity->created_at->diffForHumans() }}</small>

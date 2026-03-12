@@ -23,7 +23,8 @@ class UserController extends Controller
                 ->leftJoin('tbl_role', 'tbl_user.role_id', '=', 'tbl_role.role_id')
                 ->select([
                     'tbl_user.*',
-                    'tbl_role.role_name'
+                    'tbl_role.role_name',
+                    'tbl_role.role_id as role_id'
                 ]);
             return DataTables::of($data)
                 ->addIndexColumn()
@@ -182,6 +183,122 @@ class UserController extends Controller
                         ' . $deleteBtn . '
                     </div>
                     ';
+                })
+                ->orderColumn('user_details', function ($data, $order) {
+                    $data->orderBy('last_login', $order);
+                })
+                ->filterColumn('user_details', function ($data, $keyword) {
+                    $keyword_lower = strtolower(trim($keyword));
+
+                    // ── Active Status — suspended BEFORE active to avoid substring collision
+                    if (
+                        str_contains($keyword_lower, 'suspended')       ||
+                        str_contains($keyword_lower, 'tidak aktif')     ||
+                        str_contains($keyword_lower, 'dinonaktifkan')   ||
+                        str_contains($keyword_lower, 'nonaktif')        ||
+                        str_contains($keyword_lower, 'banned')          ||
+                        str_contains($keyword_lower, 'inactive')        ||
+                        str_contains($keyword_lower, 'blokir')          ||
+                        str_contains($keyword_lower, 'diblokir')
+                    ) {
+                        $data->where('is_active', 0);
+                        return;
+                    }
+
+                    if (
+                        str_contains($keyword_lower, 'active')          ||
+                        str_contains($keyword_lower, 'aktif')           ||
+                        str_contains($keyword_lower, 'online')          ||
+                        str_contains($keyword_lower, 'enabled')
+                    ) {
+                        $data->where('is_active', 1);
+                        return;
+                    }
+
+                    // ── Never Logged In
+                    if (
+                        str_contains($keyword_lower, 'never logged in')     ||
+                        str_contains($keyword_lower, 'belum pernah login')  ||
+                        str_contains($keyword_lower, 'belum login')         ||
+                        str_contains($keyword_lower, 'no login')
+                    ) {
+                        $data->whereNull('tbl_user.last_login');
+                        return;
+                    }
+
+                    // ── Administrator — role_id 1
+                    if (
+                        str_contains($keyword_lower, 'administrator') ||
+                        str_contains($keyword_lower, 'admin')         ||
+                        str_contains($keyword_lower, 'superuser')     ||
+                        str_contains($keyword_lower, 'super user')    ||
+                        str_contains($keyword_lower, 'root')
+                    ) {
+                        $data->where('tbl_user.role_id', 1);
+                        return;
+                    }
+
+                    // ── Visitor — role_id 2
+                    if (
+                        str_contains($keyword_lower, 'visitor')       ||
+                        str_contains($keyword_lower, 'guest')         ||
+                        str_contains($keyword_lower, 'tamu')          ||
+                        str_contains($keyword_lower, 'pengunjung')    ||
+                        str_contains($keyword_lower, 'read only')     ||
+                        str_contains($keyword_lower, 'readonly')      ||
+                        str_contains($keyword_lower, 'view only')
+                    ) {
+                        $data->where('tbl_user.role_id', 2);
+                        return;
+                    }
+
+                    // ── Owner — role_id 3
+                    if (
+                        str_contains($keyword_lower, 'owner')         ||
+                        str_contains($keyword_lower, 'pemilik')       ||
+                        str_contains($keyword_lower, 'boss')          ||
+                        str_contains($keyword_lower, 'direktur')      ||
+                        str_contains($keyword_lower, 'director')      ||
+                        str_contains($keyword_lower, 'pimpinan')      ||
+                        str_contains($keyword_lower, 'manager')       ||
+                        str_contains($keyword_lower, 'manajer')
+                    ) {
+                        $data->where('tbl_user.role_id', 3);
+                        return;
+                    }
+
+                    // ── Last Login date search — e.g. "02 Feb 2026"
+                    $parsedDate = null;
+                    try {
+                        $parsedDate = \Carbon\Carbon::parse($keyword)->format('Y-m-d');
+                    } catch (\Exception $e) {
+                        $parsedDate = null;
+                    }
+
+                    if ($parsedDate) {
+                        $data->where(function ($q) use ($keyword, $parsedDate) {
+                            $q->whereRaw("DATE_FORMAT(last_login, '%d %b %Y') like ?",  ["%{$keyword}%"])
+                                ->orWhereRaw("DATE_FORMAT(last_login, '%e %b %Y') like ?",  ["%{$keyword}%"])
+                                ->orWhereRaw("DATE_FORMAT(last_login, '%d %M %Y') like ?",  ["%{$keyword}%"])
+                                ->orWhereRaw("DATE_FORMAT(last_login, '%e %M %Y') like ?",  ["%{$keyword}%"])
+                                ->orWhereRaw("DATE_FORMAT(last_login, '%Y-%m-%d') like ?",  ["%{$keyword}%"])
+                                ->orWhereRaw("DATE(last_login) = ?", [$parsedDate])
+
+                                ->orWhereRaw("DATE_FORMAT(tbl_user.input_date, '%d %b %Y') like ?", ["%{$keyword}%"])  // ✅
+                                ->orWhereRaw("DATE_FORMAT(tbl_user.input_date, '%e %b %Y') like ?", ["%{$keyword}%"])  // ✅
+                                ->orWhereRaw("DATE_FORMAT(tbl_user.input_date, '%d %M %Y') like ?", ["%{$keyword}%"])  // ✅
+                                ->orWhereRaw("DATE_FORMAT(tbl_user.input_date, '%e %M %Y') like ?", ["%{$keyword}%"])  // ✅
+                                ->orWhereRaw("DATE(tbl_user.input_date) = ?", [$parsedDate]);
+                        });
+                        return;
+                    }
+
+                    // ── General text search
+                    $data->where(function ($q) use ($keyword) {
+                        $q->where('tbl_user.user_name', 'like', "%{$keyword}%")  // ✅
+                            ->orWhere('tbl_user.email',    'like', "%{$keyword}%")  // ✅
+                            ->orWhere('tbl_role.role_name', 'like', "%{$keyword}%");
+                    });
                 })
                 ->rawColumns(['actions', 'user_details'])
                 ->make(true);

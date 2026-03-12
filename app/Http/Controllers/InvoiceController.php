@@ -660,32 +660,82 @@ class InvoiceController extends Controller
                     $keyword_lower = strtolower(trim($keyword));
                     $numericClean  = preg_replace('/[^0-9]/', '', $keyword);
 
-                    if (str_contains('dalam perjalanan', $keyword_lower)) {
+                    // ── Not Delivered — check BEFORE delivered to avoid substring collision
+                    if (
+                        str_contains($keyword_lower, 'dalam perjalanan')  ||
+                        str_contains($keyword_lower, 'belum tiba')        ||
+                        str_contains($keyword_lower, 'belum sampai')      ||
+                        str_contains($keyword_lower, 'on the way')        ||
+                        str_contains($keyword_lower, 'on delivery')       ||
+                        str_contains($keyword_lower, 'dikirim')           ||
+                        str_contains($keyword_lower, 'pengiriman')        ||
+                        str_contains($keyword_lower, 'not delivered')     ||
+                        str_contains($keyword_lower, 'belum diterima')    ||
+                        str_contains($keyword_lower, 'sedang dikirim')
+                    ) {
                         $data->where('delivered_status', 0);
                         return;
                     }
 
-                    if (str_contains('sudah tiba tujuan', $keyword_lower)) {
+                    // ── Delivered
+                    if (
+                        str_contains($keyword_lower, 'sudah tiba tujuan') ||
+                        str_contains($keyword_lower, 'sudah tiba')        ||
+                        str_contains($keyword_lower, 'sudah sampai')      ||
+                        str_contains($keyword_lower, 'tiba')              ||
+                        str_contains($keyword_lower, 'sampai')            ||
+                        str_contains($keyword_lower, 'delivered')         ||
+                        str_contains($keyword_lower, 'diterima')          ||
+                        str_contains($keyword_lower, 'sudah diterima')    ||
+                        str_contains($keyword_lower, 'selesai')           ||
+                        str_contains($keyword_lower, 'done')
+                    ) {
                         $data->where('delivered_status', 1);
                         return;
                     }
 
-                    if (str_contains('belum di invoice', $keyword_lower)) {
+                    // ── Not Invoiced — check BEFORE invoiced to avoid substring collision
+                    if (
+                        str_contains($keyword_lower, 'belum di invoice')  ||
+                        str_contains($keyword_lower, 'belum invoice')     ||
+                        str_contains($keyword_lower, 'belum diinvoice')   ||
+                        str_contains($keyword_lower, 'not invoiced')      ||
+                        str_contains($keyword_lower, 'tidak ada invoice') ||
+                        str_contains($keyword_lower, 'no invoice')        ||
+                        str_contains($keyword_lower, 'belum ditagih')     ||
+                        str_contains($keyword_lower, 'belum tagih')
+                    ) {
                         $data->where('invoiced_status', 0);
                         return;
                     }
 
-                    if (str_contains('sudah di invoice', $keyword_lower)) {
+                    // ── Invoiced
+                    if (
+                        str_contains($keyword_lower, 'sudah di invoice')  ||
+                        str_contains($keyword_lower, 'sudah invoice')     ||
+                        str_contains($keyword_lower, 'sudah diinvoice')   ||
+                        str_contains($keyword_lower, 'invoiced')          ||
+                        str_contains($keyword_lower, 'ada invoice')       ||
+                        str_contains($keyword_lower, 'telah diinvoice')   ||
+                        str_contains($keyword_lower, 'sudah ditagih')     ||
+                        str_contains($keyword_lower, 'sudah tagih')
+                    ) {
                         $data->where('invoiced_status', 1);
                         return;
                     }
 
                     $data->where(function ($q) use ($keyword, $numericClean) {
                         $q->where('delivery_no', 'like', "%{$keyword}%")
+
                             ->orWhereRaw("CAST(qty_delivered AS CHAR) like ?", ["%{$numericClean}%"])
                             ->orWhereRaw("CONCAT(qty_delivered, ' Unit') like ?", ["%{$keyword}%"])
+
+                            // ✅ Added non-padded %e variants for "2 Feb 2026" vs "02 Feb 2026"
                             ->orWhereRaw("DATE_FORMAT(delivered_at, '%d %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(delivered_at, '%d %M %Y') like ?", ["%{$keyword}%"]);
+                            ->orWhereRaw("DATE_FORMAT(delivered_at, '%e %b %Y') like ?", ["%{$keyword}%"])
+                            ->orWhereRaw("DATE_FORMAT(delivered_at, '%d %M %Y') like ?", ["%{$keyword}%"])
+                            ->orWhereRaw("DATE_FORMAT(delivered_at, '%e %M %Y') like ?", ["%{$keyword}%"])
+                            ->orWhereRaw("DATE_FORMAT(delivered_at, '%Y-%m-%d') like ?",  ["%{$keyword}%"]);
                     });
                 })
                 ->orderColumn('invoice_details', 'tgl_invoice $1')
@@ -693,55 +743,52 @@ class InvoiceController extends Controller
                     $keyword_lower = strtolower(trim($keyword));
                     $numericClean  = preg_replace('/[^0-9]/', '', $keyword);
 
-                    // ── Invoice Status
-                    if (str_contains('unpaid', $keyword_lower)) {
+                    // ── UNPAID must be checked BEFORE paid to avoid substring collision
+                    if (str_contains($keyword_lower, 'unpaid')) {
                         $data->where('tbl_invoice.status_invoice', 0);
                         return;
                     }
 
-                    if (str_contains('paid', $keyword_lower) && !str_contains('unpaid', $keyword_lower)) {
+                    if (str_contains($keyword_lower, 'paid')) {
                         $data->where('tbl_invoice.status_invoice', 1);
                         return;
                     }
 
-                    if (str_contains('cancelled', $keyword_lower)) {
+                    if (str_contains($keyword_lower, 'cancelled')) {
                         $data->where('tbl_invoice.status_invoice', 2);
                         return;
                     }
 
                     // ── Due Date State
-                    if (str_contains('jatuh tempo hari ini', $keyword_lower)) {
+                    if (str_contains($keyword_lower, 'jatuh tempo hari ini')) {
                         $data->where('tbl_invoice.status_invoice', 0)
                             ->whereRaw("DATE(tbl_invoice.due_date) = CURDATE()");
                         return;
                     }
 
-                    if (str_contains('overdue', $keyword_lower)) {
+                    if (str_contains($keyword_lower, 'overdue')) {
                         $data->where('tbl_invoice.status_invoice', 0)
                             ->whereRaw("tbl_invoice.due_date < NOW()");
                         return;
                     }
 
-                    if (str_contains('on time', $keyword_lower)) {
+                    if (str_contains($keyword_lower, 'on time')) {
                         $data->where('tbl_invoice.status_invoice', 0)
                             ->whereRaw("tbl_invoice.due_date > NOW()");
                         return;
                     }
 
                     $data->where(function ($q) use ($keyword, $numericClean) {
-
-                        // ── Nomor Invoice
                         $q->where('tbl_invoice.nomor_invoice', 'like', "%{$keyword}%")
-
-                            // ── Tanggal Invoice
                             ->orWhereRaw("DATE_FORMAT(tbl_invoice.tgl_invoice, '%d %b %Y') like ?", ["%{$keyword}%"])
+                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.tgl_invoice, '%e %b %Y') like ?", ["%{$keyword}%"])
                             ->orWhereRaw("DATE_FORMAT(tbl_invoice.tgl_invoice, '%d %M %Y') like ?", ["%{$keyword}%"])
-
-                            // ── Due Date
+                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.tgl_invoice, '%e %M %Y') like ?", ["%{$keyword}%"])
                             ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%d %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%d %M %Y') like ?", ["%{$keyword}%"]);
+                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%e %b %Y') like ?", ["%{$keyword}%"])
+                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%d %M %Y') like ?", ["%{$keyword}%"])
+                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%e %M %Y') like ?", ["%{$keyword}%"]);
 
-                        // ── Invoice Amount — use raw formula instead of alias
                         if (!empty($numericClean)) {
                             $q->orWhereRaw("CAST((tbl_delivery.qty_delivered * tbl_po.harga) AS CHAR) like ?", ["%{$numericClean}%"]);
                         }
@@ -753,9 +800,16 @@ class InvoiceController extends Controller
 
                     // ── Paid / Lunas / Sudah Dibayar
                     if (
-                        str_contains($keyword_lower, 'paid') ||
-                        str_contains($keyword_lower, 'lunas') ||
-                        str_contains($keyword_lower, 'sudah dibayar')
+                        str_contains($keyword_lower, 'paid')          ||
+                        str_contains($keyword_lower, 'lunas')         ||
+                        str_contains($keyword_lower, 'sudah dibayar') ||
+                        str_contains($keyword_lower, 'sudah bayar')   ||
+                        str_contains($keyword_lower, 'telah dibayar') ||
+                        str_contains($keyword_lower, 'telah bayar')   ||
+                        str_contains($keyword_lower, 'terbayar')      ||
+                        str_contains($keyword_lower, 'settled')       ||
+                        str_contains($keyword_lower, 'done')          ||
+                        str_contains($keyword_lower, 'selesai')
                     ) {
                         $data->where('tbl_invoice.status_invoice', 1);
                         return;
@@ -763,8 +817,16 @@ class InvoiceController extends Controller
 
                     // ── Unpaid / Belum Dibayar
                     if (
-                        str_contains($keyword_lower, 'unpaid') ||
-                        str_contains($keyword_lower, 'belum dibayar')
+                        str_contains($keyword_lower, 'unpaid')          ||
+                        str_contains($keyword_lower, 'belum dibayar')   ||
+                        str_contains($keyword_lower, 'belum bayar')     ||
+                        str_contains($keyword_lower, 'belum lunas')     ||
+                        str_contains($keyword_lower, 'tidak dibayar')   ||
+                        str_contains($keyword_lower, 'tidak terbayar')  ||
+                        str_contains($keyword_lower, 'outstanding')     ||
+                        str_contains($keyword_lower, 'pending')         ||
+                        str_contains($keyword_lower, 'menunggu')        ||
+                        str_contains($keyword_lower, 'belum selesai')
                     ) {
                         $data->where('tbl_invoice.status_invoice', 0);
                         return;
@@ -772,8 +834,13 @@ class InvoiceController extends Controller
 
                     // ── Tidak Ada Tenggat / Tidak Ditentukan
                     if (
-                        str_contains($keyword_lower, 'tidak ada tenggat') ||
-                        str_contains($keyword_lower, 'tidak ditentukan')
+                        str_contains($keyword_lower, 'tidak ada tenggat')  ||
+                        str_contains($keyword_lower, 'tidak ditentukan')   ||
+                        str_contains($keyword_lower, 'no due date')        ||
+                        str_contains($keyword_lower, 'tanpa tenggat')      ||
+                        str_contains($keyword_lower, 'tanpa batas waktu')  ||
+                        str_contains($keyword_lower, 'tidak ada batas')    ||
+                        str_contains($keyword_lower, 'belum ditentukan')
                     ) {
                         $data->whereNull('tbl_invoice.due_date');
                         return;
@@ -781,9 +848,15 @@ class InvoiceController extends Controller
 
                     // ── Telah Lewat / Overdue / Jatuh Tempo
                     if (
-                        str_contains($keyword_lower, 'telah lewat') ||
-                        str_contains($keyword_lower, 'overdue') ||
-                        str_contains($keyword_lower, 'jatuh tempo')
+                        str_contains($keyword_lower, 'telah lewat')     ||
+                        str_contains($keyword_lower, 'sudah lewat')     ||
+                        str_contains($keyword_lower, 'overdue')         ||
+                        str_contains($keyword_lower, 'jatuh tempo')     ||
+                        str_contains($keyword_lower, 'terlambat')       ||
+                        str_contains($keyword_lower, 'telat')           ||
+                        str_contains($keyword_lower, 'melewati batas')  ||
+                        str_contains($keyword_lower, 'lewat batas')     ||
+                        str_contains($keyword_lower, 'past due')
                     ) {
                         $data->where('tbl_invoice.status_invoice', 0)
                             ->whereNotNull('tbl_invoice.due_date')
@@ -791,18 +864,46 @@ class InvoiceController extends Controller
                         return;
                     }
 
-                    // ── Sisa Waktu
-                    if (str_contains($keyword_lower, 'sisa waktu')) {
+                    // ── Sisa Waktu / Belum Jatuh Tempo
+                    if (
+                        str_contains($keyword_lower, 'sisa waktu')         ||
+                        str_contains($keyword_lower, 'belum jatuh tempo')  ||
+                        str_contains($keyword_lower, 'masih berlaku')      ||
+                        str_contains($keyword_lower, 'masih ada waktu')    ||
+                        str_contains($keyword_lower, 'on time')            ||
+                        str_contains($keyword_lower, 'dalam batas')        ||
+                        str_contains($keyword_lower, 'tepat waktu')
+                    ) {
                         $data->where('tbl_invoice.status_invoice', 0)
                             ->whereNotNull('tbl_invoice.due_date')
                             ->whereRaw("tbl_invoice.due_date >= NOW()");
                         return;
                     }
 
-                    // ── Date fallback — e.g. "23 Jul 2025"
-                    $data->where(function ($q) use ($keyword) {
+                    // ── Date search — "02 Feb 2026", "2 February 2026", "2026-02-02"
+                    $parsedDate = null;
+                    try {
+                        $parsedDate = \Carbon\Carbon::parse($keyword)->format('Y-m-d');
+                    } catch (\Exception $e) {
+                        $parsedDate = null;
+                    }
+
+                    $data->where(function ($q) use ($keyword, $parsedDate) {
+                        // "02 Feb 2026" — zero-padded + short month
                         $q->whereRaw("DATE_FORMAT(tbl_invoice.due_date, '%d %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%d %M %Y') like ?", ["%{$keyword}%"]);
+                            // "2 Feb 2026" — non-padded + short month
+                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%e %b %Y') like ?", ["%{$keyword}%"])
+                            // "02 February 2026" — zero-padded + full month
+                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%d %M %Y') like ?", ["%{$keyword}%"])
+                            // "2 February 2026" — non-padded + full month
+                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%e %M %Y') like ?", ["%{$keyword}%"])
+                            // "2026-02-02" — ISO format
+                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%Y-%m-%d') like ?", ["%{$keyword}%"]);
+
+                        // Carbon-parsed exact date match
+                        if ($parsedDate) {
+                            $q->orWhereRaw("DATE(tbl_invoice.due_date) = ?", [$parsedDate]);
+                        }
                     });
                 })
                 ->rawColumns(['invoice_details', 'delivery_details', 'due_date_timer', 'action'])

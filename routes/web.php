@@ -60,6 +60,10 @@ Route::middleware(['auth'])->group(function () {
   // Import PO
   Route::get('/purchase-orders/import', [PoController::class, 'importForm'])->name('purchase-orders.importForm');
   Route::post('/po/import', [PoController::class, 'import'])->name('po.import');
+
+  //Truncate
+  Route::post('/investasi/deleteEverything', [InvestasiController::class, 'truncate'])->name('investasi.truncate');
+  Route::post('/po/deleteEverything', [PoController::class, 'truncate'])->name('po.truncate');
   // Purchase Orders End
 
   // Invoices

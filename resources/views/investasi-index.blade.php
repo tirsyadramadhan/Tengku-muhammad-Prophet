@@ -70,6 +70,9 @@
                 </div>
             </div>
             <div class="d-flex gap-2 align-items-center">
+                <button class="btn btn-danger btn-sm px-3" id="truncate-investasi">
+                    <i class="ri-delete-bin-5-line me-1"></i> Hapus Seluruh investasi
+                </button>
                 <a href="{{ route('investments.create') }}" class="btn btn-sm btn-primary d-flex align-items-center gap-1">
                     <i class="ri-add-line"></i><span>Tambah Investasi</span>
                 </a>
@@ -101,4 +104,5 @@
         </div>
     </div>
 </div>
+@include('truncate-alert-2')
 @endsection

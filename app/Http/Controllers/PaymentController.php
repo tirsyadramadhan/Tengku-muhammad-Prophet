@@ -613,95 +613,171 @@ class PaymentController extends Controller
                 ->filterColumn('detail_pembayaran', function ($data, $keyword) {
                     $keyword_lower = strtolower(trim($keyword));
                     $numericClean  = preg_replace('/[^0-9]/', '', $keyword);
+                    $hasUnit       = str_contains($keyword_lower, 'unit');
 
-                    // ── Payment Status
-                    if (str_contains($keyword_lower, 'belum lunas')) {
+                    // ── Payment Status — belum lunas BEFORE lunas to avoid substring collision
+                    if (
+                        str_contains($keyword_lower, 'belum lunas')     ||
+                        str_contains($keyword_lower, 'belum dibayar')   ||
+                        str_contains($keyword_lower, 'belum bayar')     ||
+                        str_contains($keyword_lower, 'unpaid')          ||
+                        str_contains($keyword_lower, 'outstanding')     ||
+                        str_contains($keyword_lower, 'pending')         ||
+                        str_contains($keyword_lower, 'tidak terbayar')  ||
+                        str_contains($keyword_lower, 'belum terbayar')
+                    ) {
                         $data->where('tbl_payment.payment_status', 0);
                         return;
                     }
 
-                    if (str_contains($keyword_lower, 'lunas')) {
+                    if (
+                        str_contains($keyword_lower, 'lunas')           ||
+                        str_contains($keyword_lower, 'paid')            ||
+                        str_contains($keyword_lower, 'sudah dibayar')   ||
+                        str_contains($keyword_lower, 'sudah bayar')     ||
+                        str_contains($keyword_lower, 'telah dibayar')   ||
+                        str_contains($keyword_lower, 'terbayar')        ||
+                        str_contains($keyword_lower, 'settled')         ||
+                        str_contains($keyword_lower, 'selesai')         ||
+                        str_contains($keyword_lower, 'done')
+                    ) {
                         $data->where('tbl_payment.payment_status', 1);
                         return;
                     }
 
                     // ── Metode Bayar
-                    if (str_contains($keyword_lower, 'transfer')) {
-                        $data->whereRaw("LOWER(tbl_payment.metode_bayar) = 'transfer'");
+                    if (
+                        str_contains($keyword_lower, 'transfer')        ||
+                        str_contains($keyword_lower, 'bank transfer')   ||
+                        str_contains($keyword_lower, 'tf')
+                    ) {
+                        $data->whereRaw("LOWER(tbl_payment.metode_bayar) like ?", ['%transfer%']);
                         return;
                     }
 
-                    if (str_contains($keyword_lower, 'cash')) {
-                        $data->whereRaw("LOWER(tbl_payment.metode_bayar) = 'cash'");
+                    if (
+                        str_contains($keyword_lower, 'cash')            ||
+                        str_contains($keyword_lower, 'tunai')           ||
+                        str_contains($keyword_lower, 'bayar tunai')
+                    ) {
+                        $data->whereRaw("LOWER(tbl_payment.metode_bayar) like ?", ['%cash%']);
                         return;
                     }
 
-                    if (str_contains($keyword_lower, 'credit')) {
-                        $data->whereRaw("LOWER(tbl_payment.metode_bayar) = 'credit'");
+                    if (
+                        str_contains($keyword_lower, 'credit')          ||
+                        str_contains($keyword_lower, 'kredit')          ||
+                        str_contains($keyword_lower, 'kartu kredit')    ||
+                        str_contains($keyword_lower, 'cicilan')
+                    ) {
+                        $data->whereRaw("LOWER(tbl_payment.metode_bayar) like ?", ['%credit%']);
+                        return;
+                    }
+
+                    if (
+                        str_contains($keyword_lower, 'debit')           ||
+                        str_contains($keyword_lower, 'kartu debit')
+                    ) {
+                        $data->whereRaw("LOWER(tbl_payment.metode_bayar) like ?", ['%debit%']);
+                        return;
+                    }
+
+                    // ── "50 Unit" → ONLY search qty_delivered, stop here
+                    if ($hasUnit && !empty($numericClean)) {
+                        $data->where(function ($q) use ($numericClean, $keyword) {
+                            $q->whereRaw("CAST(tbl_delivery.qty_delivered AS CHAR) = ?", [$numericClean])
+                                ->orWhereRaw("CONCAT(tbl_delivery.qty_delivered, ' Unit') like ?", ["%{$keyword}%"]);
+                        });
                         return;
                     }
 
                     $data->where(function ($q) use ($keyword, $numericClean) {
 
-                        // ── Payment Date Estimation
+                        // ── Payment Date
                         $q->whereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%d %b %Y') like ?", ["%{$keyword}%"])
+                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%e %b %Y') like ?", ["%{$keyword}%"])
                             ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%d %M %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE(tbl_payment.payment_date_estimation) = STR_TO_DATE(?, '%d %b %Y')", [$keyword])
-                            ->orWhereRaw("DATE(tbl_payment.payment_date_estimation) = STR_TO_DATE(?, '%d %M %Y')", [$keyword])
-                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%d/%m/%Y') like ?", ["%{$keyword}%"])
+                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%e %M %Y') like ?", ["%{$keyword}%"])
                             ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%Y-%m-%d') like ?", ["%{$keyword}%"])
-
-                            // ── Amount
-                            ->orWhereRaw("CAST(tbl_payment.amount AS CHAR) like ?", ["%{$numericClean}%"])
 
                             // ── Nomor Invoice
                             ->orWhere('tbl_invoice.nomor_invoice', 'like', "%{$keyword}%")
 
                             // ── Delivery No
                             ->orWhere('tbl_delivery.delivery_no', 'like', "%{$keyword}%")
-                            ->orWhereRaw("CAST(tbl_delivery.qty_delivered AS CHAR) like ?", ["%{$numericClean}%"])
-                            ->orWhereRaw("CONCAT(tbl_delivery.qty_delivered, ' Unit') like ?", ["%{$keyword}%"])
 
                             // ── PO columns
                             ->orWhere('tbl_po.no_po', 'like', "%{$keyword}%")
                             ->orWhere('tbl_po.nama_barang', 'like', "%{$keyword}%");
+
+                        // ✅ ONLY add numeric searches when numericClean is not empty
+                        if (!empty($numericClean)) {
+                            $q->orWhereRaw("CAST(tbl_payment.amount AS CHAR) like ?", ["%{$numericClean}%"])
+                                ->orWhereRaw("CAST(tbl_delivery.qty_delivered AS CHAR) like ?", ["%{$numericClean}%"]);
+                        }
                     });
                 })
                 ->orderColumn('payment_date_estimation', 'tbl_payment.payment_status $1, tbl_payment.payment_date_estimation DESC')
                 ->filterColumn('payment_date_estimation', function ($data, $keyword) {
                     $keyword_lower = strtolower(trim($keyword));
 
-                    // ── Lunas / Sudah Dibayar
+                    // ── Belum Lunas BEFORE lunas to avoid substring collision
                     if (
-                        str_contains($keyword_lower, 'lunas') ||
-                        str_contains($keyword_lower, 'sudah dibayar')
-                    ) {
-                        $data->where('tbl_payment.payment_status', 1);
-                        return;
-                    }
-
-                    // ── Belum Lunas / Menunggu Pembayaran
-                    if (
-                        str_contains($keyword_lower, 'belum lunas') ||
-                        str_contains($keyword_lower, 'menunggu pembayaran')
+                        str_contains($keyword_lower, 'belum lunas')         ||
+                        str_contains($keyword_lower, 'menunggu pembayaran') ||
+                        str_contains($keyword_lower, 'belum dibayar')       ||
+                        str_contains($keyword_lower, 'belum bayar')         ||
+                        str_contains($keyword_lower, 'belum terbayar')      ||
+                        str_contains($keyword_lower, 'tidak terbayar')      ||
+                        str_contains($keyword_lower, 'unpaid')              ||
+                        str_contains($keyword_lower, 'outstanding')         ||
+                        str_contains($keyword_lower, 'pending')             ||
+                        str_contains($keyword_lower, 'menunggu')
                     ) {
                         $data->where('tbl_payment.payment_status', 0);
                         return;
                     }
 
-                    // ── Tidak Ada Estimasi / Tidak Ditentukan
+                    // ── Lunas / Sudah Dibayar
+                    if (
+                        str_contains($keyword_lower, 'lunas')           ||
+                        str_contains($keyword_lower, 'sudah dibayar')   ||
+                        str_contains($keyword_lower, 'sudah bayar')     ||
+                        str_contains($keyword_lower, 'telah dibayar')   ||
+                        str_contains($keyword_lower, 'telah bayar')     ||
+                        str_contains($keyword_lower, 'terbayar')        ||
+                        str_contains($keyword_lower, 'paid')            ||
+                        str_contains($keyword_lower, 'settled')         ||
+                        str_contains($keyword_lower, 'selesai')         ||
+                        str_contains($keyword_lower, 'done')
+                    ) {
+                        $data->where('tbl_payment.payment_status', 1);
+                        return;
+                    }
+
+                    // ── Tidak Ada Estimasi
                     if (
                         str_contains($keyword_lower, 'tidak ada estimasi') ||
-                        str_contains($keyword_lower, 'tidak ditentukan')
+                        str_contains($keyword_lower, 'tidak ditentukan')   ||
+                        str_contains($keyword_lower, 'tanpa estimasi')     ||
+                        str_contains($keyword_lower, 'belum ditentukan')   ||
+                        str_contains($keyword_lower, 'no estimation')      ||
+                        str_contains($keyword_lower, 'tanpa batas waktu')
                     ) {
                         $data->whereNull('tbl_payment.payment_date_estimation');
                         return;
                     }
 
-                    // ── Lewat Estimasi / Telah Lewat (overdue, not today)
+                    // ── Lewat Estimasi / Overdue — before jatuh tempo to avoid collision
                     if (
-                        str_contains($keyword_lower, 'lewat estimasi') ||
-                        str_contains($keyword_lower, 'telah lewat')
+                        str_contains($keyword_lower, 'lewat estimasi')  ||
+                        str_contains($keyword_lower, 'telah lewat')     ||
+                        str_contains($keyword_lower, 'sudah lewat')     ||
+                        str_contains($keyword_lower, 'overdue')         ||
+                        str_contains($keyword_lower, 'terlambat')       ||
+                        str_contains($keyword_lower, 'telat')           ||
+                        str_contains($keyword_lower, 'past due')        ||
+                        str_contains($keyword_lower, 'melewati batas')
                     ) {
                         $data->where('tbl_payment.payment_status', 0)
                             ->whereNotNull('tbl_payment.payment_date_estimation')
@@ -710,27 +786,53 @@ class PaymentController extends Controller
                     }
 
                     // ── Jatuh Tempo Hari Ini
-                    if (str_contains($keyword_lower, 'jatuh tempo')) {
+                    if (
+                        str_contains($keyword_lower, 'jatuh tempo hari ini') ||
+                        str_contains($keyword_lower, 'jatuh tempo')          ||
+                        str_contains($keyword_lower, 'hari ini')             ||
+                        str_contains($keyword_lower, 'due today')            ||
+                        str_contains($keyword_lower, 'today')
+                    ) {
                         $data->where('tbl_payment.payment_status', 0)
                             ->whereRaw("DATE(tbl_payment.payment_date_estimation) = CURDATE()");
                         return;
                     }
 
-                    // ── Sisa Waktu (future)
-                    if (str_contains($keyword_lower, 'sisa waktu')) {
+                    // ── Sisa Waktu / Belum Jatuh Tempo
+                    if (
+                        str_contains($keyword_lower, 'sisa waktu')          ||
+                        str_contains($keyword_lower, 'belum jatuh tempo')   ||
+                        str_contains($keyword_lower, 'masih berlaku')       ||
+                        str_contains($keyword_lower, 'masih ada waktu')     ||
+                        str_contains($keyword_lower, 'on time')             ||
+                        str_contains($keyword_lower, 'dalam batas')         ||
+                        str_contains($keyword_lower, 'tepat waktu')
+                    ) {
                         $data->where('tbl_payment.payment_status', 0)
+                            ->whereNotNull('tbl_payment.payment_date_estimation')
                             ->whereRaw("DATE(tbl_payment.payment_date_estimation) > CURDATE()");
                         return;
                     }
 
-                    // ── Date fallback — e.g. "25 Aug 2025"
-                    $data->where(function ($q) use ($keyword) {
+                    // ── Date fallback — "02 Feb 2026", "2 February 2026", "2026-02-02"
+                    $parsedDate = null;
+                    try {
+                        $parsedDate = \Carbon\Carbon::parse($keyword)->format('Y-m-d');
+                    } catch (\Exception $e) {
+                        $parsedDate = null;
+                    }
+
+                    $data->where(function ($q) use ($keyword, $parsedDate) {
                         $q->whereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%d %b %Y') like ?", ["%{$keyword}%"])
+                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%e %b %Y') like ?", ["%{$keyword}%"])
                             ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%d %M %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE(tbl_payment.payment_date_estimation) = STR_TO_DATE(?, '%d %b %Y')", [$keyword])
-                            ->orWhereRaw("DATE(tbl_payment.payment_date_estimation) = STR_TO_DATE(?, '%d %M %Y')", [$keyword])
+                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%e %M %Y') like ?", ["%{$keyword}%"])
                             ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%d/%m/%Y') like ?", ["%{$keyword}%"])
                             ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%Y-%m-%d') like ?", ["%{$keyword}%"]);
+
+                        if ($parsedDate) {
+                            $q->orWhereRaw("DATE(tbl_payment.payment_date_estimation) = ?", [$parsedDate]);
+                        }
                     });
                 })
                 ->rawColumns(['detail_pembayaran', 'action', 'payment_date_estimation'])
