@@ -1,0 +1,103 @@
+{
+  "menu": [
+    {
+      "url": "/",
+      "name": "Dashboard",
+      "icon": "menu-icon icon-base ri ri-home-smile-line",
+      "slug": "dashboard"
+    },
+    {
+      "menuHeader": "Apps & Pages"
+    },
+    {
+      "url": "https://demos.themeselection.com/materio-bootstrap-html-laravel-admin-template/demo-1/app/chat",
+      "name": "Chat",
+      "icon": "menu-icon icon-base ri ri-wechat-line",
+      "slug": "app-chat",
+      "target": "_blank"
+    },
+    {
+      "url": "https://demos.themeselection.com/materio-bootstrap-html-laravel-admin-template/demo-1/app/calendar",
+      "name": "Calendar",
+      "icon": "menu-icon icon-base ri ri-calendar-line",
+      "slug": "app-calendar",
+      "target": "_blank"
+    },
+    {
+      "name": "Account Settings",
+      "icon": "menu-icon icon-base ri ri-layout-left-line",
+      "slug": "pages-account-settings",
+      "submenu": [
+        {
+          "url": "pages/account-settings-account",
+          "name": "Account",
+          "slug": "pages-account-settings-account"
+        },
+        {
+          "url": "pages/account-settings-notifications",
+          "name": "Notifications",
+          "slug": "pages-account-settings-notifications"
+        },
+        {
+          "url": "pages/account-settings-connections",
+          "name": "Connections",
+          "slug": "pages-account-settings-connections"
+        }
+      ]
+    },
+    {
+      "menuHeader": "Datas"
+    },
+    {
+      "name": "Users",
+      "icon": "menu-icon icon-base ri-user-line",
+      "slug": "",
+      "url": "master/users"
+    },
+    {
+      "name": "Customers",
+      "icon": "menu-icon icon-base ri-user-star-line",
+      "slug": "",
+      "url": "master/customers"
+    },
+    {
+      "name": "Incoming POs",
+      "icon": "menu-icon icon-base ri-shopping-cart-2-line",
+      "slug": "",
+      "url": "transactions/incoming-purchase-orders"
+    },
+    {
+      "name": "Purchase Orders",
+      "icon": "menu-icon icon-base ri-shopping-basket-line",
+      "slug": "",
+      "url": "transactions/purchase-orders"
+    },
+    {
+      "name": "Deliveries",
+      "icon": "menu-icon icon-base ri-truck-line",
+      "slug": "",
+      "url": "transactions/deliveries"
+    },
+    {
+      "name": "Invoices",
+      "icon": "menu-icon icon-base ri-file-list-3-line",
+      "slug": "",
+      "url": "transactions/invoices"
+    },
+    {
+      "menuHeader": "Financials"
+    },
+    {
+      "name": "Payments",
+      "icon": "menu-icon icon-base ri-money-dollar-circle-line",
+      "slug": "",
+      "url": "financials/payments"
+    },
+    {
+      "name": "Rekap Investasi",
+      "icon": "menu-icon icon-base ri-coins-line",
+      "slug": "",
+      "url": "financials/investments"
+    }
+  ]
+}
