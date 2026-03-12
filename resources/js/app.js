@@ -163,6 +163,13 @@ if (document.getElementById("suspend-user")) {
     });
 }
 
+window.onRecaptchaLoad = function () {
+    // Manually render the recaptcha widget
+    if (document.getElementsByClassName('g-recaptcha').length > 0) {
+        grecaptcha.render(document.querySelector('.g-recaptcha'));
+    }
+};
+
 if (document.getElementById("formAuthentication")) {
     const validation = new JustValidate('#formAuthentication', {
         successFieldCssClass: 'is-valid',
@@ -172,21 +179,27 @@ if (document.getElementById("formAuthentication")) {
         validateBeforeSubmitting: true, // ← live validation
     });
 
+    window.onRecaptchaSuccess = function (token) {
+        const input = document.getElementById('g-recaptcha-response');
+        if (input) {
+            input.value = token;
+            validation.revalidateField('#g-recaptcha-response');
+        }
+    };
+
+    window.onRecaptchaExpired = function () {
+        const input = document.getElementById('g-recaptcha-response');
+        if (input) {
+            input.value = '';
+            validation.revalidateField('#g-recaptcha-response');
+        }
+    };
+
     const rememberCheckbox = document.getElementById('form2Example3');
 
     rememberCheckbox.addEventListener('change', function () {
         this.value = this.checked ? '1' : '0';
     });
-
-    window.onRecaptchaSuccess = function (token) {
-        document.getElementById('g-recaptcha-response').value = token;
-        validation.revalidateField('#g-recaptcha-response');
-    };
-
-    window.onRecaptchaExpired = function () {
-        document.getElementById('g-recaptcha-response').value = '';
-        validation.revalidateField('#g-recaptcha-response');
-    };
 
     function clearValidStates() {
         ['#user_name', '#password-input', '#g-recaptcha-response'].forEach(selector => {
@@ -206,11 +219,6 @@ if (document.getElementById("formAuthentication")) {
         validation.revalidateField('#g-recaptcha-response');
     }
 
-    window.onRecaptchaSuccess = function (token) {
-        document.getElementById('g-recaptcha-response').value = token;
-        validation.revalidateField('#g-recaptcha-response');
-    };
-
     validation
         .addField('#user_name', [
             { rule: 'required', errorMessage: 'Isi Username' },
@@ -228,20 +236,25 @@ if (document.getElementById("formAuthentication")) {
         })
         .addField('#g-recaptcha-response', [
             {
-                rule: 'required', // ← needed so empty state triggers error
-                errorMessage: 'Selesaikan verifikasi reCAPTCHA terlebih dahulu.',
+                rule: 'required',
+                errorMessage: 'Selesaikan verifikasi reCAPTCHA.',
             },
             {
                 rule: 'custom',
-                validator: () => {
-                    if (typeof grecaptcha === 'undefined' || typeof grecaptcha.getResponse !== 'function') {
+                validator: (value) => {
+                    if (typeof grecaptcha === 'undefined') return false;
+
+                    try {
+                        const response = grecaptcha.getResponse();
+                        return response.length > 0;
+                    } catch (e) {
                         return false;
                     }
-                    return grecaptcha.getResponse().length > 0;
                 },
-                errorMessage: 'Selesaikan verifikasi reCAPTCHA terlebih dahulu.',
-            }], {
-            successMessage: 'Verifikasi berhasil!',
+                errorMessage: 'Selesaikan verifikasi reCAPTCHA.',
+            }
+        ], {
+            successMessage: 'Verifikasi berhasil!'
         })
         .onSuccess(async (event) => {
             const form = event.target;
@@ -347,7 +360,6 @@ if (document.getElementById("formAuthentication")) {
                     btnSpinner.classList.add('d-none');
                 });
         });
-
 }
 
 if (document.getElementById("create-user")) {

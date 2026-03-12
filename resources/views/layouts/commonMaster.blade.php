@@ -26,7 +26,7 @@
     @yield('layoutContent')
 
     {{-- All scripts at bottom of body --}}
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit" async defer></script>
     <script async defer src="https://buttons.github.io/buttons.js"></script>
 
     @vite([
