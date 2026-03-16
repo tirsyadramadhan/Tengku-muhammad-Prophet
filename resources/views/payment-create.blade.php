@@ -8,7 +8,7 @@
         <h5 class="mb-0">Rekam Pembayaran Baru</h5>
     </div>
     <div class="card-body">
-        <form id="paymentForm" action="{{ route('payment.store') }}" method="POST">
+        <form id="paymentForm" action="{{ route('payment.store') }}" method="POST" novalidate autocomplete="off">
             <div class="row">
                 <!-- Pilih Invoice (Select2) -->
                 <div class="col-md-6 mb-3">

@@ -3,99 +3,134 @@
 @section('title', 'Manajemen Invoice')
 
 @section('content')
-<div class="container-xxl flex-grow-1 container-p-y" id="invoice-main-container">
-    {{-- STAT CARDS --}}
-    <div class="row mb-4 g-3">
-        <div class="col-6 col-md-3">
-            <div class="card stat-card shadow-sm border-bottom border-primary border-3 h-100">
+<div id="main-container-index" class="container-fluid px-3 px-md-4 py-4">
+
+    {{-- ── Stat Cards ────────────────────────────── --}}
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body d-flex align-items-center gap-3 p-3">
-                    <div class="stat-icon bg-label-primary">
+                    <div class="rounded-3 p-2 bg-primary bg-opacity-10 flex-shrink-0">
                         <i class="ri-file-list-3-line fs-4 text-primary"></i>
                     </div>
-                    <div>
-                        <div class="stat-label text-muted">Total Faktur</div>
-                        <h4 class="stat-value text-dark">{{ $stats['total'] }}</h4>
+                    <div class="overflow-hidden">
+                        <h5 class="mb-0 fw-bold text-truncate">{{ $stats['total'] }}</h5>
+                        <small class="text-muted">Total Faktur</small>
                     </div>
+                </div>
+                <div class="card-footer p-0 border-0">
+                    <div class="bg-primary rounded-bottom" style="height:3px;"></div>
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="card stat-card shadow-sm border-bottom border-success border-3 h-100">
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body d-flex align-items-center gap-3 p-3">
-                    <div class="stat-icon bg-label-success">
+                    <div class="rounded-3 p-2 bg-success bg-opacity-10 flex-shrink-0">
                         <i class="ri-checkbox-circle-line fs-4 text-success"></i>
                     </div>
-                    <div>
-                        <div class="stat-label text-muted">Sudah Terbayar</div>
-                        <h4 class="stat-value text-dark">{{ $stats['paid_count'] }}</h4>
+                    <div class="overflow-hidden">
+                        <h5 class="mb-0 fw-bold text-truncate">{{ $stats['paid_count'] }}</h5>
+                        <small class="text-muted">Sudah Terbayar</small>
                     </div>
+                </div>
+                <div class="card-footer p-0 border-0">
+                    <div class="bg-success rounded-bottom" style="height:3px;"></div>
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="card stat-card shadow-sm border-bottom border-warning border-3 h-100">
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body d-flex align-items-center gap-3 p-3">
-                    <div class="stat-icon bg-label-warning">
+                    <div class="rounded-3 p-2 bg-warning bg-opacity-10 flex-shrink-0">
                         <i class="ri-time-line fs-4 text-warning"></i>
                     </div>
-                    <div>
-                        <div class="stat-label text-muted">Menunggu Bayar</div>
-                        <h4 class="stat-value text-dark">{{ $stats['unpaid_count'] }}</h4>
+                    <div class="overflow-hidden">
+                        <h5 class="mb-0 fw-bold text-truncate">{{ $stats['unpaid_count'] }}</h5>
+                        <small class="text-muted">Menunggu Bayar</small>
                     </div>
+                </div>
+                <div class="card-footer p-0 border-0">
+                    <div class="bg-warning rounded-bottom" style="height:3px;"></div>
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="card stat-card shadow-sm border-bottom border-danger border-3 h-100">
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body d-flex align-items-center gap-3 p-3">
-                    <div class="stat-icon bg-label-danger">
+                    <div class="rounded-3 p-2 bg-danger bg-opacity-10 flex-shrink-0">
                         <i class="ri-error-warning-line fs-4 text-danger"></i>
                     </div>
-                    <div>
-                        <div class="stat-label text-muted">Terlambat</div>
-                        <h4 class="stat-value text-dark">{{ $stats['overdue_count'] }}</h4>
+                    <div class="overflow-hidden">
+                        <h5 class="mb-0 fw-bold text-truncate">{{ $stats['overdue_count'] }}</h5>
+                        <small class="text-muted">Terlambat</small>
                     </div>
+                </div>
+                <div class="card-footer p-0 border-0">
+                    <div class="bg-danger rounded-bottom" style="height:3px;"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- MAIN TABLE CARD --}}
-    <div class="card invoice-card">
+    {{-- ── Main Table Card ────────────────────────────── --}}
+    <div class="card border-0 shadow-sm">
 
         {{-- Card Header --}}
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 24 24">
-                    <path fill="#31c4da" d="M19 22H5a3 3 0 0 1-3-3V3a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v12h4v4a3 3 0 0 1-3 3m-1-5v2a1 1 0 1 0 2 0v-2zm-2 3V4H4v15a1 1 0 0 0 1 1zM6 7h8v2H6zm0 4h8v2H6zm0 4h5v2H6z" />
-                </svg>
-                <div class="d-flex flex-column ms-2">
-                    <h4 class="fw-bold mb-0">Invoices</h4>
-                    <small class="text-muted">Kelola invoice</small>
+        <div class="card-header bg-transparent border-bottom py-3 px-3 px-md-4">
+            <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3">
+
+                {{-- Title --}}
+                <div class="d-flex align-items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="40px" height="40px" viewBox="0 0 24 24" class="flex-shrink-0">
+                        <path fill="#31c4da" d="M19 22H5a3 3 0 0 1-3-3V3a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v12h4v4a3 3 0 0 1-3 3m-1-5v2a1 1 0 1 0 2 0v-2zm-2 3V4H4v15a1 1 0 0 0 1 1zM6 7h8v2H6zm0 4h8v2H6zm0 4h5v2H6z" />
+                    </svg>
+                    <div>
+                        <h5 class="fw-bold mb-0">Invoices</h5>
+                        <small class="text-muted">Kelola invoice</small>
+                    </div>
                 </div>
+
+                {{-- Action Buttons --}}
+                @if (Auth::user()->role_id != 2)
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ route('invoice.create') }}" class="btn btn-primary btn-sm px-3">
+                        <i class="ri-add-line me-1"></i>
+                        <span class="d-none d-md-inline">Tambah Faktur</span>
+                        <span class="d-md-none">Tambah</span>
+                    </a>
+                </div>
+                @endif
+
             </div>
-            @if (Auth::user()->role_id != 2)
-            <a href="{{ route('invoice.create') }}" class="btn btn-primary shadow-sm">
-                <i class="ri-add-line me-1"></i> Tambah Faktur
-            </a>
-            @endif
         </div>
-        <div class="table-responsive" style="scroll-behavior: smooth;">
+
+        {{-- Table --}}
+        <div class="table-responsive">
             <table
                 data-url="{{ route('invoice.index') }}"
                 data-csrf="{{ csrf_token() }}"
-                id="invoice-table" class="table table-hover align-middle mb-0" style="width:100%">
-                <thead>
+                id="invoice-table"
+                class="table table-hover align-middle mb-0 text-nowrap"
+                style="width:100%;">
+                <thead class="table-light">
                     <tr>
-                        <th class="text-center">No</th>
-                        <th class="text-center">Detail Faktur</th>
-                        <th class="text-center">Detail Delivery</th>
-                        <th class="text-center">Estimasi Jatuh Tempo</th>
-                        <th class="text-center">Aksi</th>
+                        <th class="text-center" style="width:50px;">No</th>
+                        <th>No PO</th>
+                        <th>Nama Barang</th>
+                        <th>No. Delivery</th>
+                        <th class="text-center">Qty Terkirim</th>
+                        <th class="text-center">Status Delivery</th>
+                        <th>No. Invoice</th>
+                        <th>Tgl Invoice</th>
+                        <th>Due Date</th>
+                        <th class="text-center">Status Invoice</th>
+                        <th class="text-center" style="width:60px;">Aksi</th>
                     </tr>
                 </thead>
             </table>
         </div>
+
     </div>
 </div>
 @endsection

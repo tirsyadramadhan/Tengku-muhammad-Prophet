@@ -12,7 +12,7 @@
                     data-incoming-details-url="{{ route('po.incoming-details', ':id') }}">
                 </div>
 
-                <form id="createPoForm" action="{{ route('po.store') }}">
+                <form id="createPoForm" action="{{ route('po.store') }}" novalidate autocomplete="off">
                     <!-- Incoming PO Selection -->
                     <div class="mb-4">
                         <label class="form-label fw-bold">Pilih Incoming PO <span class="text-danger">*</span></label>

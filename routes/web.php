@@ -10,6 +10,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\InvestasiController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\SummaryController;
 
 Route::middleware(['guest'])->group(function () {
   Route::get('/', [AuthController::class, 'showLogin'])->name('login'); // Name this 'login' for Laravel redirects
@@ -68,7 +69,7 @@ Route::middleware(['auth'])->group(function () {
 
   // Invoices
   Route::resource('invoices', InvoiceController::class)->names('invoice');
-  Route::post('invoices/{id}/pay', [InvoiceController::class, 'payInvoice']);
+  Route::post('invoices/{id}/pay', [InvoiceController::class, 'payInvoice'])->name('payInvoice');
   // Invoices End
 
   // Deliveries
@@ -100,6 +101,8 @@ Route::middleware(['auth'])->group(function () {
 
   // Delete incoming purchase order 
   Route::delete('/incoming-po/{po_id}', [PoController::class, 'destroy'])->name('incoming-po.destroy');
+
+  Route::resource('summary', SummaryController::class);
 
   // Incoming Purchase Orders End
   Route::get('investments/export', [InvestasiController::class, 'export'])->name('investments.export');

@@ -49,6 +49,12 @@
       "url": "investments"
     },
     {
+      "name": "Transfer History",
+      "icon": "menu-icon icon-base ri-hand-coin-fill",
+      "slug": "",
+      "url": "summary"
+    },
+    {
       "menuHeader": "People"
     },
     {

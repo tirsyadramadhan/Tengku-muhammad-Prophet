@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\InvestasiExport;
 use App\Models\Investasi;
 use App\Models\Po;
-use App\Models\Margin;
+use App\Models\Summary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -26,163 +26,199 @@ class InvestasiController extends Controller
 
             $table = DataTables::of($investments)
                 ->addIndexColumn()
-                ->addColumn('investasi_details', function ($row) {
-                    $fmt = fn($val) => 'Rp ' . number_format($val, 0, ',', '.');
-
-                    $modal_setor_awal  = $fmt($row->modal_setor_awal);
-                    $modal_po_baru     = $fmt($row->modal_po_baru);
-                    $margin            = $fmt($row->margin);
-                    $pencairan_modal   = $fmt($row->pencairan_modal);
-                    $margin_cair       = $fmt($row->margin_cair);
-                    $pengembalian_dana = $fmt($row->pengembalian_dana);
-                    $dana_tersedia     = $fmt($row->dana_tersedia);
-                    $tgl               = Carbon::parse($row->tgl_investasi)->toIndonesianRelative();
-                    $colorClass = fn($val) => ($val < 0)
-                        ? 'text-danger'
-                        : 'text-success';
-
-                    return <<<HTML
-                        <div class="card" style="
-                            width: 260px;
-                            background: #0f172a;
-                            border: 1px solid #1e3a5f;
-                            border-radius: 10px;
-                            overflow: hidden;
-                            font-family: 'Segoe UI', sans-serif;
-                            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                        ">
-                            <!-- Header -->
-                            <div style="
-                                background: linear-gradient(135deg, #1e40af, #0ea5e9);
-                                padding: 8px 12px;
-                                font-size: 11px;
-                                font-weight: 700;
-                                color: #fff;
-                                letter-spacing: 0.08em;
-                                text-transform: uppercase;
-                            ">
-                                Detail Investasi
-                            </div>
-
-                            <!-- Rows -->
-                            <div style="padding: 6px 0;">
-
-                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px; border-bottom: 1px solid #1e293b;">
-                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Modal Setor Awal</span>
-                                    <span class="{$colorClass($row->modal_setor_awal)}" style="font-size:11px; font-weight:600; white-space:nowrap;">{$modal_setor_awal}</span>
-                                </div>
-
-                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px; border-bottom: 1px solid #1e293b;">
-                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Modal PO Baru</span>
-                                    <span class="{$colorClass($row->modal_po_baru)}" style="font-size:11px; font-weight:600; white-space:nowrap;">{$modal_po_baru}</span>
-                                </div>
-
-                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px; border-bottom: 1px solid #1e293b;">
-                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Margin</span>
-                                    <span class="{$colorClass($row->margin)}" style="font-size:11px; font-weight:600; white-space:nowrap;">{$margin}</span>
-                                </div>
-
-                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px; border-bottom: 1px solid #1e293b;">
-                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Pencairan Modal</span>
-                                    <span class="{$colorClass($row->pencairan_modal)}" style="font-size:11px; font-weight:600; white-space:nowrap;">{$pencairan_modal}</span>
-                                </div>
-
-                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px; border-bottom: 1px solid #1e293b;">
-                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Margin Cair</span>
-                                    <span class="{$colorClass($row->margin_cair)}" style="font-size:11px; font-weight:600; white-space:nowrap;">{$margin_cair}</span>
-                                </div>
-
-                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px; border-bottom: 1px solid #1e293b;">
-                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Pengembalian Dana</span>
-                                    <span class="{$colorClass($row->pengembalian_dana)}" style="font-size:11px; font-weight:600; white-space:nowrap;">{$pengembalian_dana}</span>
-                                </div>
-
-                                <div style="display:flex; justify-content:space-between; align-items:center; padding: 5px 12px;">
-                                    <span class="text-white" style="font-size:11px; color:#94a3b8; white-space:nowrap;">Dana Tersedia</span>
-                                    <span class="{$colorClass($row->dana_tersedia)}" style="font-size:12px; font-weight:700; white-space:nowrap;">{$dana_tersedia}</span>
-                                </div>
-
-                            </div>
-
-                            <!-- Footer -->
-                            <div style="
-                                background: #1e293b;
-                                padding: 6px 12px;
-                                font-size: 10px;
-                                color: #fff;
-                                display: flex;
-                                gap: 5px;
-                                flex-direction: column;
-                            ">
-                                <span class="badge bg-info" style="width: fit-content;">{$row->tgl_investasi}</span>
-                                <span class="badge bg-primary" style="width: fit-content;">{$tgl}</span>
-                            </div>
-                        </div>
-                        HTML;
-                })
-                ->orderColumn('investasi_details', function ($investments, $order) {
-                    $investments->orderBy('dana_tersedia', $order);
-                })
-
-                ->filterColumn('investasi_details', function ($investments, $keyword) {
-                    $keyword = trim($keyword);
-
-                    // Strip "Rp " prefix and thousand separators to get raw numeric keyword
-                    $numericKeyword = preg_replace('/[Rp\s\.]+/', '', $keyword);
-
-                    // ── Date formats: 2026-07-25 or 25 Jul 2026
-                    $dateFromISO = null;
-                    $dateFromIndo = null;
-
-                    // Match YYYY-MM-DD
-                    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $keyword)) {
-                        $dateFromISO = $keyword;
+                ->addColumn('modal_setor_awal', function ($row) {
+                    if (!$row->modal_setor_awal && $row->modal_setor_awal !== 0) {
+                        return '<span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+                                    <i class="ri-minus-line me-1"></i>Tidak ada
+                                </span>';
                     }
-
-                    // Match "25 Jul 2026" or "25 July 2026"
-                    if (preg_match('/^\d{1,2}\s+\w+\s+\d{4}$/', $keyword)) {
+                    $formatted = 'Rp ' . number_format($row->modal_setor_awal, 0, ',', '.');
+                    return '<span style="display:inline-flex;align-items:center;gap:5px;
+                                        font-size:0.8rem;font-weight:700;color:#1e293b;white-space:nowrap;">
+                                <i class="ri-money-rupee-circle-line" style="color:#16a34a;font-size:0.9rem;"></i>
+                                ' . $formatted . '
+                            </span>';
+                })
+                ->orderColumn('modal_setor_awal', 'tbl_investasi.modal_setor_awal $1')
+                ->filterColumn('modal_setor_awal', function ($query, $keyword) {
+                    $clean = str_replace(',', '.', preg_replace('/[Rp\s.]/', '', $keyword));
+                    if (is_numeric($clean)) {
+                        $query->where('tbl_investasi.modal_setor_awal', (float) $clean);
+                    } else {
+                        $query->where('tbl_investasi.modal_setor_awal', 'like', "%{$keyword}%");
+                    }
+                })
+                ->addColumn('modal_po_baru', function ($row) {
+                    if (!$row->modal_po_baru && $row->modal_po_baru !== 0) {
+                        return '<span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+                                    <i class="ri-minus-line me-1"></i>Tidak ada
+                                </span>';
+                    }
+                    $formatted = 'Rp ' . number_format($row->modal_po_baru, 0, ',', '.');
+                    return '<span style="display:inline-flex;align-items:center;gap:5px;
+                                        font-size:0.8rem;font-weight:700;color:#1e293b;white-space:nowrap;">
+                                <i class="ri-money-rupee-circle-line" style="color:#16a34a;font-size:0.9rem;"></i>
+                                ' . $formatted . '
+                            </span>';
+                })
+                ->orderColumn('modal_po_baru', 'tbl_investasi.modal_po_baru $1')
+                ->filterColumn('modal_po_baru', function ($query, $keyword) {
+                    $clean = str_replace(',', '.', preg_replace('/[Rp\s.]/', '', $keyword));
+                    if (is_numeric($clean)) {
+                        $query->where('tbl_investasi.modal_po_baru', (float) $clean);
+                    } else {
+                        $query->where('tbl_investasi.modal_po_baru', 'like', "%{$keyword}%");
+                    }
+                })
+                ->addColumn('margin', function ($row) {
+                    if (!$row->margin && $row->margin !== 0) {
+                        return '<span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+                                    <i class="ri-minus-line me-1"></i>Tidak ada
+                                </span>';
+                    }
+                    $formatted = 'Rp ' . number_format($row->margin, 0, ',', '.');
+                    $color     = $row->margin >= 0 ? '#16a34a' : '#dc2626';
+                    $icon      = $row->margin >= 0 ? 'ri-arrow-up-line' : 'ri-arrow-down-line';
+                    return '<span style="display:inline-flex;align-items:center;gap:5px;
+                                        font-size:0.8rem;font-weight:700;color:' . $color . ';white-space:nowrap;">
+                                <i class="' . $icon . '" style="font-size:0.9rem;"></i>
+                                ' . $formatted . '
+                            </span>';
+                })
+                ->orderColumn('margin', 'tbl_investasi.margin $1')
+                ->filterColumn('margin', function ($query, $keyword) {
+                    $clean = str_replace(',', '.', preg_replace('/[Rp\s.]/', '', $keyword));
+                    if (is_numeric($clean)) {
+                        $query->where('tbl_investasi.margin', (float) $clean);
+                    } else {
+                        $query->where('tbl_investasi.margin', 'like', "%{$keyword}%");
+                    }
+                })
+                ->addColumn('pencairan_modal', function ($row) {
+                    if (!$row->pencairan_modal && $row->pencairan_modal !== 0) {
+                        return '<span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+                                    <i class="ri-minus-line me-1"></i>Tidak ada
+                                </span>';
+                    }
+                    $formatted = 'Rp ' . number_format($row->pencairan_modal, 0, ',', '.');
+                    return '<span style="display:inline-flex;align-items:center;gap:5px;
+                                        font-size:0.8rem;font-weight:700;color:#1e293b;white-space:nowrap;">
+                                <i class="ri-money-rupee-circle-line" style="color:#0284c7;font-size:0.9rem;"></i>
+                                ' . $formatted . '
+                            </span>';
+                })
+                ->orderColumn('pencairan_modal', 'tbl_investasi.pencairan_modal $1')
+                ->filterColumn('pencairan_modal', function ($query, $keyword) {
+                    $clean = str_replace(',', '.', preg_replace('/[Rp\s.]/', '', $keyword));
+                    if (is_numeric($clean)) {
+                        $query->where('tbl_investasi.pencairan_modal', (float) $clean);
+                    } else {
+                        $query->where('tbl_investasi.pencairan_modal', 'like', "%{$keyword}%");
+                    }
+                })
+                ->addColumn('margin_cair', function ($row) {
+                    if (!$row->margin_cair && $row->margin_cair !== 0) {
+                        return '<span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+                                    <i class="ri-minus-line me-1"></i>Tidak ada
+                                </span>';
+                    }
+                    $formatted = 'Rp ' . number_format($row->margin_cair, 0, ',', '.');
+                    $color     = $row->margin_cair >= 0 ? '#16a34a' : '#dc2626';
+                    $icon      = $row->margin_cair >= 0 ? 'ri-arrow-up-line' : 'ri-arrow-down-line';
+                    return '<span style="display:inline-flex;align-items:center;gap:5px;
+                                        font-size:0.8rem;font-weight:700;color:' . $color . ';white-space:nowrap;">
+                                <i class="' . $icon . '" style="font-size:0.9rem;"></i>
+                                ' . $formatted . '
+                            </span>';
+                })
+                ->orderColumn('margin_cair', 'tbl_investasi.margin_cair $1')
+                ->filterColumn('margin_cair', function ($query, $keyword) {
+                    $clean = str_replace(',', '.', preg_replace('/[Rp\s.]/', '', $keyword));
+                    if (is_numeric($clean)) {
+                        $query->where('tbl_investasi.margin_cair', (float) $clean);
+                    } else {
+                        $query->where('tbl_investasi.margin_cair', 'like', "%{$keyword}%");
+                    }
+                })
+                ->addColumn('pengembalian_dana', function ($row) {
+                    if (is_null($row->pengembalian_dana)) {
+                        return '<span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+                                    <i class="ri-minus-line me-1"></i>Tidak ada
+                                </span>';
+                    }
+                    $formatted = 'Rp ' . number_format($row->pengembalian_dana, 0, ',', '.');
+                    return '<span style="display:inline-flex;align-items:center;gap:5px;
+                                        font-size:0.8rem;font-weight:700;color:#1e293b;white-space:nowrap;">
+                                <i class="ri-refund-line" style="color:#d97706;font-size:0.9rem;"></i>
+                                ' . $formatted . '
+                            </span>';
+                })
+                ->orderColumn('pengembalian_dana', 'tbl_investasi.pengembalian_dana $1')
+                ->filterColumn('pengembalian_dana', function ($query, $keyword) {
+                    $clean = str_replace(',', '.', preg_replace('/[Rp\s.]/', '', $keyword));
+                    if (is_numeric($clean)) {
+                        $query->where('tbl_investasi.pengembalian_dana', (float) $clean);
+                    } else {
+                        $query->where('tbl_investasi.pengembalian_dana', 'like', "%{$keyword}%");
+                    }
+                })
+                ->addColumn('dana_tersedia', function ($row) {
+                    if (!$row->dana_tersedia && $row->dana_tersedia !== 0) {
+                        return '<span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+                                    <i class="ri-minus-line me-1"></i>Tidak ada
+                                </span>';
+                    }
+                    $formatted = 'Rp ' . number_format($row->dana_tersedia, 0, ',', '.');
+                    $color     = $row->dana_tersedia > 0 ? '#16a34a' : '#dc2626';
+                    return '<span style="display:inline-flex;align-items:center;gap:5px;
+                                        background:' . ($row->dana_tersedia > 0 ? '#f0fdf4' : '#fef2f2') . ';
+                                        color:' . $color . ';
+                                        border:1px solid ' . $color . '30;border-radius:8px;
+                                        padding:3px 9px;font-size:0.78rem;font-weight:700;white-space:nowrap;">
+                                <i class="ri-wallet-3-line" style="font-size:0.85rem;"></i>
+                                ' . $formatted . '
+                            </span>';
+                })
+                ->orderColumn('dana_tersedia', 'tbl_investasi.dana_tersedia $1')
+                ->filterColumn('dana_tersedia', function ($query, $keyword) {
+                    $clean = str_replace(',', '.', preg_replace('/[Rp\s.]/', '', $keyword));
+                    if (is_numeric($clean)) {
+                        $query->where('tbl_investasi.dana_tersedia', (float) $clean);
+                    } else {
+                        $query->where('tbl_investasi.dana_tersedia', 'like', "%{$keyword}%");
+                    }
+                })
+                ->addColumn('tgl_investasi', function ($row) {
+                    if (!$row->tgl_investasi) {
+                        return '<span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+                                    <i class="ri-minus-line me-1"></i>Tidak ada
+                                </span>';
+                    }
+                    $date    = \Carbon\Carbon::parse($row->tgl_investasi);
+                    $dateStr = $date->translatedFormat('d M Y');
+                    return '<span style="display:inline-flex;align-items:center;gap:5px;
+                                        font-size:0.78rem;font-weight:600;color:#1e293b;white-space:nowrap;">
+                                <i class="ri-calendar-check-line" style="color:#0284c7;font-size:0.85rem;"></i>
+                                ' . $dateStr . '
+                            </span>';
+                })
+                ->orderColumn('tgl_investasi', 'tbl_investasi.tgl_investasi $1')
+                ->filterColumn('tgl_investasi', function ($query, $keyword) {
+                    try {
+                        $date = \Carbon\Carbon::createFromFormat('d M Y', trim($keyword));
+                        $query->whereDate('tbl_investasi.tgl_investasi', $date->toDateString());
+                    } catch (\Exception $e) {
                         try {
-                            $dateFromIndo = \Carbon\Carbon::parse($keyword)->format('Y-m-d');
-                        } catch (\Exception $e) {
-                            $dateFromIndo = null;
+                            $date = \Carbon\Carbon::parse($keyword);
+                            $query->whereDate('tbl_investasi.tgl_investasi', $date->toDateString());
+                        } catch (\Exception $e2) {
+                            $query->whereRaw(
+                                "DATE_FORMAT(tbl_investasi.tgl_investasi, '%d %b %Y') LIKE ?",
+                                ["%{$keyword}%"]
+                            );
                         }
                     }
-
-                    if ($dateFromISO || $dateFromIndo) {
-                        $date = $dateFromISO ?? $dateFromIndo;
-                        $investments->whereDate('tgl_investasi', $date);
-                        return;
-                    }
-
-                    // ── Numeric / Rp keyword — search all money fields
-                    if ($numericKeyword !== '') {
-                        $investments->where(function ($q) use ($numericKeyword, $keyword) {
-                            $q
-                                // Raw numeric match
-                                ->where('modal_setor_awal',  'like', "%{$numericKeyword}%")
-                                ->orWhere('modal_po_baru',   'like', "%{$numericKeyword}%")
-                                ->orWhere('margin',          'like', "%{$numericKeyword}%")
-                                ->orWhere('pencairan_modal', 'like', "%{$numericKeyword}%")
-                                ->orWhere('margin_cair',     'like', "%{$numericKeyword}%")
-                                ->orWhere('pengembalian_dana', 'like', "%{$numericKeyword}%")
-                                ->orWhere('dana_tersedia',   'like', "%{$numericKeyword}%")
-
-                                // Formatted "Rp 900.000.000" match
-                                ->orWhereRaw("REPLACE(FORMAT(modal_setor_awal,  0), ',', '.') like ?", ["%{$numericKeyword}%"])
-                                ->orWhereRaw("REPLACE(FORMAT(modal_po_baru,    0), ',', '.') like ?", ["%{$numericKeyword}%"])
-                                ->orWhereRaw("REPLACE(FORMAT(margin,           0), ',', '.') like ?", ["%{$numericKeyword}%"])
-                                ->orWhereRaw("REPLACE(FORMAT(pencairan_modal,  0), ',', '.') like ?", ["%{$numericKeyword}%"])
-                                ->orWhereRaw("REPLACE(FORMAT(margin_cair,      0), ',', '.') like ?", ["%{$numericKeyword}%"])
-                                ->orWhereRaw("REPLACE(FORMAT(pengembalian_dana,0), ',', '.') like ?", ["%{$numericKeyword}%"])
-                                ->orWhereRaw("REPLACE(FORMAT(dana_tersedia,    0), ',', '.') like ?", ["%{$numericKeyword}%"]);
-                        });
-                        return;
-                    }
-
-                    // ── Fallback: raw keyword against date
-                    $investments->where('tgl_investasi', 'like', "%{$keyword}%");
                 });
-
             $table->addColumn('action', function ($inv) {
                 $user = Auth::user();
 
@@ -199,19 +235,16 @@ class InvestasiController extends Controller
                     </button>
                     ';
             });
-            $rawColumns = ['investasi_details', 'action'];
+            $rawColumns = ['modal_setor_awal', 'modal_po_baru', 'margin', 'pencairan_modal', 'margin_cair', 'pengembalian_dana', 'dana_tersedia', 'tgl_investasi', 'action'];
             return $table->rawColumns($rawColumns)->make(true);
         }
 
-        // ── STAT CARD TOTALS ────────────────────────────────────────────
         $totalMargin      = Investasi::sum('margin');
         $totalModalSetor  = Investasi::sum('modal_setor_awal');
         $totalPenarikan   = Investasi::sum('pengembalian_dana');
         $totalModalPoBaru = Investasi::sum('modal_po_baru');
-        // Fetch the latest investment record based on id_investasi
         $investasi = Investasi::orderBy('id_investasi', 'desc')->first();
 
-        // Initialize $prevDana to 0 in case no record exists
         $danaTersedia = 0;
 
         if ($investasi) {
@@ -233,24 +266,14 @@ class InvestasiController extends Controller
             ->orderBy('no_po', 'desc')
             ->get();
 
-        $lastInvestasi = Investasi::orderBy('id_investasi', 'desc')->first();
-        // Fetch the latest investment record based on id_investasi
-        $investasi = Investasi::orderBy('id_investasi', 'desc')->first();
+        $summary = Summary::first();
 
-        // Initialize $prevDana to 0 in case no record exists
-        $prevDana = 0;
+        $dana_tersedia = $summary['dana_tersedia'];
+        $marginTersedia = $summary['margin_tersedia'];
+        $totalInvestasiTransfer = $summary['total_investasi_transfer'];
+        $dana_ditransfer = $marginTersedia + $totalInvestasiTransfer;
 
-        if ($investasi) {
-            $prevDana = $investasi->dana_tersedia;
-        }
-
-        $marginTersedia = Margin::sum('margin_tersedia') - Po::where('status', '!=', 7)
-            ->where('status', '!=', 0)
-            ->sum('margin');
-        $totalInvestasiTransfer = Investasi::sum('modal_setor_awal') - Investasi::sum('modal_po_baru') + Margin::sum('investasi_dikembalikan');
-        $total_dana_ditransfer = $marginTersedia + $totalInvestasiTransfer;
-
-        return view('investasi-create', compact('closedPos', 'prevDana', 'total_dana_ditransfer', 'marginTersedia', 'totalInvestasiTransfer'));
+        return view('investasi-create', compact('closedPos', 'dana_tersedia', 'marginTersedia', 'totalInvestasiTransfer', 'dana_ditransfer'));
     }
 
     public function store(Request $request)
@@ -273,8 +296,6 @@ class InvestasiController extends Controller
 
         try {
             DB::beginTransaction();
-            // --- 1. Determine base values (positive sums) ---
-            // Modal Setor
             $valSetor = 0;
             if ($request->mode_setor === 'manual') {
                 $valSetor = (float) $request->manual_setor_awal;
@@ -304,7 +325,6 @@ class InvestasiController extends Controller
                 }
             }
 
-            // --- 2. Apply signs ---
             $signSetor = (int) ($request->sign_setor ?? 1);
             $valSetor = $valSetor * $signSetor;
 
@@ -314,23 +334,15 @@ class InvestasiController extends Controller
             $signMargin = (int) ($request->sign_margin ?? 1);
             $valMargin = $valMargin * $signMargin;
 
-            // --- 3. Previous Dana ---
-            $lastInvestasi = Investasi::orderBy('id_investasi', 'desc')->first();
-            $prevDana = $lastInvestasi ? $lastInvestasi->dana_tersedia : 0;
-
-            // --- 4. User manual inputs (already signed by frontend toggles) ---
             $pencairan = (float) ($request->pencairan_modal ?? 0);
             $margin_cair = (float) ($request->margin_cair ?? 0);
             $pengembalian_dana = $pencairan + $margin_cair;
+            $dana_tersedia = (float) ($request->dana_tersedia);
 
-            // 2. CHANGE LOGIC: Sum the array values
-            // If it's an array, sum it. If null, use 0.
             $rawPenarikan = $request->penarikan ?? [];
             $penarikan = is_array($rawPenarikan) ? array_sum($rawPenarikan) : (float) $rawPenarikan;
-            // --- 5. Calculate Final Dana Tersedia ---
-            $danaTersedia = ($prevDana + $valSetor + $valMargin + $pencairan) - ($valPoBaru + $penarikan);
+            $danaTersedia = ($dana_tersedia + $valSetor + $valMargin + $pencairan) - ($valPoBaru + $penarikan);
 
-            // --- 6. Create Record ---
             $investasi = Investasi::create([
                 'tgl_investasi'    => Carbon::now(),
                 'modal_setor_awal' => $valSetor,
@@ -340,6 +352,34 @@ class InvestasiController extends Controller
                 'margin_cair'        => $margin_cair,
                 'pengembalian_dana'        => $pengembalian_dana,
                 'dana_tersedia'    => $danaTersedia,
+            ]);
+
+            $summary = Summary::first();
+            $investasi_dikembalikan = $summary->total_investasi_transfer >= 0 ? $summary->investasi_dikembalikan + $summary->total_investasi_transfer : $summary->investasi_dikembalikan;
+            $total_transfer_investasi = $summary->total_investasi_transfer <= 0
+                ? $summary->total_transfer_investasi + $summary->total_investasi_transfer
+                : $summary->total_transfer_investasi;
+            $margin_diterima = $summary->margin_diterima + $summary->margin_tersedia;
+            $investasi_ditahan = Po::where('status', '!=', 0)->where('status', '!=', 8)->sum('modal_awal');
+            $margin_ditahan = Po::where('status', '!=', 0)->where('status', '!=', 8)->sum('margin');
+            $total_margin = Po::where('status', '!=', 0)->sum('margin');
+            $sisa_margin   = $total_margin - $margin_diterima;
+
+            Summary::create([
+                'investasi_id' => $investasi->id_investasi,
+                'dana_tersedia' => $request->dana_tersedia,
+                'investasi_dikembalikan' => $investasi_dikembalikan,
+                'investasi_tambahan' => $request->filled('investasi_tambahan') && $request->investasi_tambahan != 0
+                    ? $request->investasi_tambahan
+                    : $summary->investasi_tambahan,
+                'investasi_ditahan' => $investasi_ditahan,
+                'total_investasi_transfer' => 0,
+                'total_transfer_investasi' => $total_transfer_investasi,
+                'margin_diterima' => $margin_diterima,
+                'margin_tersedia' => 0,
+                'margin_ditahan' => $margin_ditahan,
+                'total_margin' => $total_margin,
+                'sisa_margin' => $sisa_margin,
             ]);
 
             $this->logCreate($investasi);

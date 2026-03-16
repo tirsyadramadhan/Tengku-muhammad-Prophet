@@ -14,11 +14,13 @@ import Swal from 'sweetalert2';
 import jQuery from 'jquery';
 import { Tooltip } from 'bootstrap';
 import JustValidate from 'just-validate';
+import { formatDuration, intervalToDuration } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
 import select2 from 'select2';
 import 'select2/dist/css/select2.min.css';
 import 'select2-bootstrap-5-theme/dist/select2-bootstrap-5-theme.min.css';
 import * as bootstrap from 'bootstrap';
-import 'datatables.net-fixedheader';
+import 'datatables.net-fixedheader'
 const baseUrl = window.location.pathname.replace(/\/+$/, '');
 
 window.$ = window.jQuery = jQuery;
@@ -71,22 +73,6 @@ if (document.getElementById('logout-btn')) {
     });
 }
 
-if (document.getElementById("sidebar-toggle")) {
-    (function () {
-        const html = document.documentElement;
-        const toggleBtn = document.querySelector('.layout-menu-toggle');
-
-        // ── Default: hidden (use Sneat's own offcanvas mechanism) ──────────
-        html.classList.add('layout-menu-collapsed', 'layout-menu-offcanvas');
-
-        // ── Toggle ─────────────────────────────────────────────────────────
-        toggleBtn.addEventListener('click', function () {
-            html.classList.toggle('layout-menu-collapsed');
-            html.classList.toggle('layout-menu-offcanvas');
-        });
-    })();
-}
-
 if (document.getElementById("activate-user")) {
     $('.activate-user').on('click', function () {
         const url = $(this).data('url');
@@ -132,7 +118,7 @@ if (document.getElementById("activate-user")) {
 }
 
 if (document.getElementById("suspend-user")) {
-    $('#suspend-user').on('click', function () {
+    $('.suspend-user').on('click', function () {
         const userId = $(this).data('id');
         const url = $(this).data('url');
         const token = $(this).data('token');
@@ -176,50 +162,12 @@ if (document.getElementById("suspend-user")) {
     });
 }
 
-if (document.getElementById("suspend-user-2")) {
-    $('#suspend-user-2').on('click', function () {
-        const userId = $(this).data('id');
-        const url = $(this).data('url');
-        const token = $(this).data('token');
-
-        Swal.fire({
-            title: 'Nonaktifkan Akun?',
-            text: 'Akun ini akan dinonaktifkan dan tidak bisa login.',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Ya, Nonaktifkan',
-            cancelButtonText: 'Batal',
-        }).then((result) => {
-            if (result.isConfirmed) {
-                $.ajax({
-                    url: url,
-                    method: 'POST',
-                    data: { _token: token },
-                    success: function (response) {
-                        Swal.fire({
-                            title: 'Berhasil!',
-                            text: response.message,
-                            icon: 'success',
-                            confirmButtonColor: '#3085d6',
-                        }).then(() => {
-                            location.reload();
-                        });
-                    },
-                    error: function (xhr) {
-                        Swal.fire({
-                            title: 'Gagal!',
-                            text: xhr.responseJSON?.message ?? 'Terjadi kesalahan.',
-                            icon: 'error',
-                            confirmButtonColor: '#d33',
-                        });
-                    }
-                });
-            }
-        });
-    });
-}
+window.onRecaptchaLoad = function () {
+    // Manually render the recaptcha widget
+    if (document.getElementsByClassName('g-recaptcha').length > 0) {
+        grecaptcha.render(document.querySelector('.g-recaptcha'));
+    }
+};
 
 if (document.getElementById("formAuthentication")) {
     const validation = new JustValidate('#formAuthentication', {
@@ -229,12 +177,6 @@ if (document.getElementById("formAuthentication")) {
         successLabelCssClass: 'valid-feedback',
         validateBeforeSubmitting: true, // ← live validation
     });
-
-    window.onRecaptchaLoad = function () {
-        if (document.getElementsByClassName('g-recaptcha').length > 0) {
-            grecaptcha.render(document.querySelector('.g-recaptcha'));
-        }
-    };
 
     window.onRecaptchaSuccess = function (token) {
         const input = document.getElementById('g-recaptcha-response');
@@ -2358,53 +2300,29 @@ if (document.getElementById('delivery-table')) {
     const csrfToken = tableEl.getAttribute('data-csrf'); // FIX #2
 
     $('#delivery-table thead').append(`
-    <tr class="column-search-row">
-        <th></th>
-        <th>
-            <input type="text" id="search-no-po"
-                class="form-control form-control-sm"
-                placeholder="No. PO..."
-                style="min-width:120px;">
-        </th>
-        <th>
-            <input type="text" id="search-nama-barang"
-                class="form-control form-control-sm"
-                placeholder="Nama barang..."
-                style="min-width:150px;">
-        </th>
-        <th>
-            <input type="text" id="search-delivery-no"
-                class="form-control form-control-sm"
-                placeholder="No. delivery..."
-                style="min-width:130px;">
-        </th>
-        <th>
-            <input type="number" id="search-qty-delivered"
-                class="form-control form-control-sm"
-                placeholder="Qty..."
-                min="0"
-                style="min-width:100px;">
-        </th>
-        <th>
-            <input type="date" id="search-delivery-estimation"
-                class="form-control form-control-sm"
-                style="min-width:160px;">
-        </th>
-        <th>
-            <input type="date" id="search-delivered-at"
-                class="form-control form-control-sm"
-                style="min-width:160px;">
-        </th>
-        <th>
-            <select id="search-delivered-status" class="form-select form-select-sm" style="min-width:130px;">
-                <option value="">Semua Status</option>
-                <option value="0">Pending</option>
-                <option value="1">Delivered</option>
-            </select>
-        </th>
-        <th></th>
-    </tr>
-`);
+        <tr class="column-search-row">
+            <th></th>
+            <th>
+                <input type="text" id="search-delivery-details"
+                    class="form-control form-control-sm"
+                    placeholder="Cari No.Del / Qty / Tgl / Status..."
+                    style="min-width:180px;">
+            </th>
+            <th>
+                <input type="text" id="search-detail-po"
+                    class="form-control form-control-sm" 
+                    placeholder="Cari No.PO / Tgl / Barang / Status..."
+                    style="min-width:180px;">
+            </th>
+            <th>
+                <input type="text" id="search-status"
+                    class="form-control form-control-sm"
+                    placeholder="Cari estimasi / status..."
+                    style="min-width:160px;">
+            </th>
+            <th></th>
+        </tr>
+    `);
 
     var table = $('#delivery-table').DataTable({
         processing: true,
@@ -2414,16 +2332,6 @@ if (document.getElementById('delivery-table')) {
         scrollX: true,
         scrollCollapse: true,
         ajax: ajaxUrl,
-        columnDefs: [
-            { targets: 1 },  // No PO
-            { targets: 2 },  // Nama Barang
-            { targets: 3 },  // Delivery No
-            { targets: 4 },  // Qty Delivered
-            { targets: 5 },  // Delivery Time Estimation
-            { targets: 6 },  // Delivered At
-            { targets: 7, className: 'text-center' },  // Delivered Status
-            { targets: -1, orderable: false, searchable: false, className: 'text-center' }, // Aksi
-        ],
         columns: [
             {
                 data: 'DT_RowIndex',
@@ -2433,47 +2341,25 @@ if (document.getElementById('delivery-table')) {
                 className: 'text-center fw-medium text-muted'
             },
             {
-                data: 'no_po',
-                name: 'no_po',
+                data: 'delivery_details',
+                name: 'delivery_details',
+                className: 'ps-3',
                 orderable: true,
-                searchable: true,
+                searchable: true
             },
             {
-                data: 'nama_barang',
-                name: 'nama_barang',
+                data: 'detail_po',
+                name: 'detail_po',
+                className: 'ps-3',
                 orderable: true,
-                searchable: true,
+                searchable: true
             },
             {
-                data: 'delivery_no',
-                name: 'delivery_no',
+                data: 'status',
+                name: 'status',
+                className: 'ps-3 text-center',
                 orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'qty_delivered',
-                name: 'qty_delivered',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'delivery_time_estimation',
-                name: 'delivery_time_estimation',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'delivered_at',
-                name: 'delivered_at',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'delivered_status',
-                name: 'delivered_status',
-                orderable: true,
-                searchable: true,
-                className: 'text-center',
+                searchable: true
             },
             {
                 data: 'action',
@@ -2481,137 +2367,153 @@ if (document.getElementById('delivery-table')) {
                 orderable: false,
                 searchable: false,
                 className: 'text-center'
-            },
+            }
         ],
+
         order: [[1, 'desc']],
-        pageLength: 10,
+        pageLength: 5,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
-        orderCellsTop: true,
-        initComplete: function () {
-            $(document).on('click', '.btn-deliver-now', function () {
-                const btn = this;
-                const url = btn.getAttribute('data-url');
-                const token = btn.getAttribute('data-token');
-                const id = btn.getAttribute('data-id');
 
-                Swal.fire({
-                    title: 'Konfirmasi Pengiriman',
-                    html: `
-            <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:8px 0;">
-                <div style="width:64px;height:64px;border-radius:50%;
-                            background:linear-gradient(135deg,#e0f2fe,#bae6fd);
-                            display:flex;align-items:center;justify-content:center;
-                            box-shadow:0 4px 16px #0284c730;">
-                    <i class="ri-send-plane-fill" style="font-size:1.8rem;color:#0284c7;"></i>
-                </div>
-                <div style="text-align:center;">
-                    <p style="margin:0 0 4px;font-size:0.95rem;font-weight:600;color:#1e293b;">
-                        Tandai sebagai sudah terkirim?
-                    </p>
-                    <small style="color:#94a3b8;font-size:0.82rem;">
-                        Tindakan ini tidak dapat dibatalkan.
-                    </small>
-                </div>
-            </div>
-        `,
-                    showCancelButton: true,
-                    confirmButtonColor: '#0284c7',
-                    cancelButtonColor: '#94a3b8',
-                    confirmButtonText: '<i class="ri-send-plane-fill"></i> Ya, Kirim Sekarang',
-                    cancelButtonText: '<i class="ri-close-line"></i> Batal',
-                    focusCancel: true,
-                    customClass: {
-                        confirmButton: 'px-4',
-                        cancelButton: 'px-4',
-                    },
-                    reverseButtons: true,
-                }).then((result) => {
-                    if (!result.isConfirmed) return;
+        drawCallback: function () {
+            // ← convert to static array so DOM shifts don't affect iteration
+            var elements = Array.from(document.getElementsByClassName("delivery-timer"));
 
-                    // Loading state
-                    btn.disabled = true;
-                    btn.style.opacity = '0.7';
-                    btn.innerHTML = '<i class="ri-loader-4-line"></i> Memproses...';
+            elements.forEach(function (el) {
+                var wrapper = el.closest('.timer-wrapper');
+                var target = wrapper ? wrapper.getAttribute('data-target') : null;
+                var deliveryId = wrapper ? wrapper.getAttribute('data-id') : null;
+                if (!target || !deliveryId) return;
 
-                    fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': token,
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                        body: JSON.stringify({ delivery_id: id })
-                    })
-                        .then(res => res.json())
-                        .then(data => {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Berhasil Dikirim!',
-                                html: `
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-                        <p style="margin:0;color:#475569;font-size:0.9rem;">
-                            ${data.message ?? 'Pengiriman berhasil dikonfirmasi.'}
+                (function (el, targetDate, id) {
+                    function updateCountdown() {
+                        var now = new Date();
+                        var end = new Date(targetDate);
+
+                        if (end <= now) {
+                            var elapsed = intervalToDuration({ start: end, end: now });
+                            var elapsedText = formatDuration(elapsed, {
+                                format: ['years', 'months', 'days', 'hours', 'minutes'],
+                                zero: true,
+                                delimiter: ' ',
+                                locale: idLocale
+                            });
+
+                            elapsedText = elapsedText
+                                .replace(/(\d+) days?/, '$1 Hari')
+                                .replace(/(\d+) hours?/, '$1 Jam')
+                                .replace(/(\d+) minutes?/, '$1 Menit');
+
+                            el.innerHTML = `<small style="color:#dc3545;">${elapsedText} yang lalu</small>`;
+                            return;
+                        }
+
+                        var duration = intervalToDuration({ start: now, end: end });
+                        el.textContent = formatDuration(duration, {
+                            format: ['years', 'months', 'days', 'hours', 'minutes'],
+                            zero: true,
+                            delimiter: ' ',
+                            locale: idLocale
+                        });
+                    }
+
+                    updateCountdown();
+                    setInterval(updateCountdown, 1000);
+                })(el, target, deliveryId);
+            });
+
+            // ── Deliver Sekarang button ──
+            document.querySelectorAll('.deliver-now-btn').forEach(function (btn) {
+                btn.replaceWith(btn.cloneNode(true));
+            });
+
+            document.querySelectorAll('.deliver-now-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    const url = btn.getAttribute('data-url');
+                    const token = btn.getAttribute('data-token');
+                    const id = btn.getAttribute('data-id');
+
+                    Swal.fire({
+                        title: 'Konfirmasi Pengiriman',
+                        html: `
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:6px 0;">
+                        <div style="width:56px;height:56px;border-radius:50%;background:#e0f2fe;display:flex;align-items:center;justify-content:center;">
+                            <i class="ri-send-plane-fill" style="font-size:1.6rem;color:#0284c7;"></i>
+                        </div>
+                        <p style="margin:0;font-size:0.92rem;color:#475569;">
+                            Tandai pengiriman ini sebagai <strong>sudah terkirim</strong>?<br>
+                            <small style="color:#94a3b8;">Tindakan ini tidak dapat dibatalkan.</small>
                         </p>
                     </div>
                 `,
-                                confirmButtonColor: '#0284c7',
-                                confirmButtonText: 'OK',
-                                timer: 2000,
-                                timerProgressBar: true,
-                            }).then(() => {
-                                table.ajax.reload(null, false);
-                            });
-                        })
-                        .catch(() => {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Gagal!',
-                                text: 'Terjadi kesalahan. Silakan coba lagi.',
-                                confirmButtonColor: '#dc2626',
-                            });
+                        showCancelButton: true,
+                        confirmButtonColor: '#0284c7',
+                        cancelButtonColor: '#94a3b8',
+                        confirmButtonText: '<i class="ri-send-plane-fill"></i> Ya, Kirim Sekarang',
+                        cancelButtonText: 'Batal',
+                        focusCancel: true,
+                    }).then((result) => {
+                        if (!result.isConfirmed) return;
 
-                            // Reset button
-                            btn.disabled = false;
-                            btn.style.opacity = '1';
-                            btn.innerHTML = '<i class="ri-send-plane-fill" style="font-size:0.85rem;"></i> Deliver Sekarang';
-                        });
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="ri-loader-4-line"></i> Memproses...';
+
+                        fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': token,
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            body: JSON.stringify({ delivery_id: id })
+                        })
+                            .then(res => res.json())
+                            .then(data => {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Berhasil!',
+                                    text: data.message ?? 'Pengiriman berhasil dikonfirmasi.',
+                                    confirmButtonColor: '#0284c7',
+                                }).then(() => {
+                                    table.ajax.reload(null, false);
+                                });
+                            })
+                            .catch(() => {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Gagal!',
+                                    text: 'Terjadi kesalahan. Coba lagi.',
+                                    confirmButtonColor: '#d33',
+                                });
+
+                                btn.disabled = false;
+                                btn.innerHTML = '<i class="ri-send-plane-fill"></i> Deliver Sekarang';
+                            });
+                    });
                 });
             });
-
+        },
+        orderCellsTop: true,
+        initComplete: function () {
             var api = this.api();
-            $('#search-no-po').on('keyup change', function () {
-                if (api.column(1).search() !== this.value)
+
+            $('#search-delivery-details').on('keyup change', function () {
+                if (api.column(1).search() !== this.value) {
                     api.column(1).search(this.value).draw();
+                }
             });
 
-            $('#search-nama-barang').on('keyup change', function () {
-                if (api.column(2).search() !== this.value)
+            // ── Bind search input AFTER init ───────────────────
+            $('#search-detail-po').on('keyup change', function () {
+                if (api.column(2).search() !== this.value) {
                     api.column(2).search(this.value).draw();
+                }
             });
 
-            $('#search-delivery-no').on('keyup change', function () {
-                if (api.column(3).search() !== this.value)
+            $('#search-status').on('keyup change', function () {
+                if (api.column(3).search() !== this.value) {
                     api.column(3).search(this.value).draw();
-            });
-
-            $('#search-qty-delivered').on('keyup change', function () {
-                if (api.column(4).search() !== this.value)
-                    api.column(4).search(this.value).draw();
-            });
-
-            $('#search-delivery-estimation').on('keyup change', function () {
-                if (api.column(5).search() !== this.value)
-                    api.column(5).search(this.value).draw();
-            });
-
-            $('#search-delivered-at').on('keyup change', function () {
-                if (api.column(6).search() !== this.value)
-                    api.column(6).search(this.value).draw();
-            });
-
-            $('#search-delivered-status').on('change', function () {
-                api.column(7).search(this.value).draw();
+                }
             });
         }
     });
@@ -2672,66 +2574,29 @@ if (document.getElementById('invoice-table')) {
     const csrfToken = tableEl.getAttribute('data-csrf'); // FIX #2
 
     $('#invoice-table thead').append(`
-    <tr class="column-search-row">
-        <th></th>
-        <th>
-            <input type="text" id="search-no-po"
-                class="form-control form-control-sm"
-                placeholder="No. PO..."
-                style="min-width:120px;">
-        </th>
-        <th>
-            <input type="text" id="search-nama-barang"
-                class="form-control form-control-sm"
-                placeholder="Nama barang..."
-                style="min-width:150px;">
-        </th>
-        <th>
-            <input type="text" id="search-delivery-no"
-                class="form-control form-control-sm"
-                placeholder="No. delivery..."
-                style="min-width:130px;">
-        </th>
-        <th>
-            <input type="number" id="search-qty-delivered"
-                class="form-control form-control-sm"
-                placeholder="Qty..."
-                min="0"
-                style="min-width:100px;">
-        </th>
-        <th>
-            <select id="search-delivered-status" class="form-select form-select-sm" style="min-width:130px;">
-                <option value="">Semua Status</option>
-                <option value="0">Pending</option>
-                <option value="1">Delivered</option>
-            </select>
-        </th>
-        <th>
-            <input type="text" id="search-nomor-invoice"
-                class="form-control form-control-sm"
-                placeholder="No. invoice..."
-                style="min-width:140px;">
-        </th>
-        <th>
-            <input type="date" id="search-tgl-invoice"
-                class="form-control form-control-sm"
-                style="min-width:160px;">
-        </th>
-        <th>
-            <input type="date" id="search-due-date"
-                class="form-control form-control-sm"
-                style="min-width:160px;">
-        </th>
-        <th>
-            <select id="search-status-invoice" class="form-select form-select-sm" style="min-width:120px;">
-                <option value="">Semua Status</option>
-                <option value="0">Unpaid</option>
-                <option value="1">Paid</option>
-            </select>
-        </th>
-        <th></th>
-    </tr>
-`);
+        <tr class="column-search-row">
+            <th></th>
+            <th>
+                <input type="text" id="search-invoice-details"
+                    class="form-control form-control-sm"
+                    placeholder="Cari No.Inv / Tgl / Due / Tagihan / Status..."
+                    style="min-width:200px;">
+            </th>
+            <th>
+                <input type="text" id="search-delivery-details"
+                    class="form-control form-control-sm"
+                    placeholder="Cari No.Del / Qty / Tgl / Status..."
+                    style="min-width:180px;">
+            </th>
+            <th>
+                <input type="text" id="search-due-date"
+                    class="form-control form-control-sm"
+                    placeholder="Cari due date / status / tagihan..."
+                    style="min-width:160px;">
+            </th>
+            <th></th>
+        </tr>
+    `);
 
     var table = $('#invoice-table').DataTable({
         processing: true,
@@ -2740,179 +2605,110 @@ if (document.getElementById('invoice-table')) {
         fixedHeader: true,
         scrollX: true,
         scrollCollapse: true,
-        autoWidth: false,
         ajax: ajaxUrl,
-        order: [[6, 'desc']], // default order by tgl_invoice
-        columnDefs: [
-            { targets: 1 },  // No PO
-            { targets: 2 },  // Nama Barang
-            { targets: 3 },  // Delivery No
-            { targets: 4 },  // Qty Delivered
-            { targets: 5, className: 'text-center' },  // Delivered Status
-            { targets: 6 },  // Nomor Invoice
-            { targets: 7 },  // Tgl Invoice
-            { targets: 8 },  // Due Date
-            { targets: 9, className: 'text-center' },  // Status Invoice
-            { targets: -1, orderable: false, searchable: false, className: 'text-center', width: '60px' }, // Aksi
+        order: [
+            [1, 'asc']
         ],
-        columns: [
-            { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
-            { data: 'no_po', name: 'no_po', orderable: true, searchable: true },
-            { data: 'nama_barang', name: 'nama_barang', orderable: true, searchable: true },
-            { data: 'delivery_no', name: 'delivery_no', orderable: true, searchable: true },
-            { data: 'qty_delivered', name: 'qty_delivered', orderable: true, searchable: true },
-            { data: 'delivered_status', name: 'delivered_status', orderable: true, searchable: true, className: 'text-center' },
-            { data: 'nomor_invoice', name: 'nomor_invoice', orderable: true, searchable: true },
-            { data: 'tgl_invoice', name: 'tgl_invoice', orderable: true, searchable: true },
-            { data: 'due_date', name: 'due_date', orderable: true, searchable: true },
-            { data: 'status_invoice', name: 'status_invoice', orderable: true, searchable: true, className: 'text-center' },
-            { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center' },
+        columns: [{
+            data: 'DT_RowIndex',
+            name: 'DT_RowIndex',
+            orderable: false,
+            searchable: false
+        },
+        {
+            data: 'invoice_details',
+            name: 'invoice_details',
+            orderable: true,
+            searchable: true
+        },
+        {
+            data: 'delivery_details',
+            name: 'delivery_details',
+            orderable: true,
+            searchable: true
+        },
+        {
+            data: 'due_date_timer',
+            name: 'due_date_timer',
+            orderable: true,
+            searchable: true
+        },
+        {
+            data: 'action',
+            name: 'action',
+            orderable: false,
+            searchable: false,
+            className: 'text-center'
+        }
         ],
-        pageLength: 10,
+        pageLength: 5,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
+        drawCallback: function () {
+            var elements = Array.from(document.getElementsByClassName("invoice-timer"));
+
+            elements.forEach(function (el) {
+                var wrapper = el.closest('.timer-wrapper');
+                var target = wrapper ? wrapper.getAttribute('data-target') : null;
+                if (!target) return;
+
+                (function (el, targetDate) {
+                    function updateCountdown() {
+                        var now = new Date();
+                        var end = new Date(targetDate);
+
+                        if (end <= now) {
+                            var elapsed = intervalToDuration({ start: end, end: now });
+                            var elapsedText = formatDuration(elapsed, {
+                                format: ['years', 'months', 'days', 'hours', 'minutes'],
+                                zero: true,
+                                delimiter: ' ',
+                                locale: idLocale
+                            });
+
+                            elapsedText = elapsedText
+                                .replace(/(\d+) days?/, '$1 Hari')
+                                .replace(/(\d+) hours?/, '$1 Jam')
+                                .replace(/(\d+) minutes?/, '$1 Menit');
+
+                            el.innerHTML = `<small style="color:#dc3545;font-weight:600;display:block;margin-top:3px;">${elapsedText} yang lalu</small>`;
+                            clearInterval(interval);
+                            return;
+                        }
+
+                        var duration = intervalToDuration({ start: now, end: end });
+                        el.textContent = formatDuration(duration, {
+                            format: ['years', 'months', 'days', 'hours', 'minutes'],
+                            zero: true,
+                            delimiter: ' ',
+                            locale: idLocale
+                        });
+                    }
+
+                    updateCountdown();
+                    var interval = setInterval(updateCountdown, 1000);
+                })(el, target);
+            });
+        },
         orderCellsTop: true,
         initComplete: function () {
-            $(document).on('click', '.btn-pay-now', function () {
-                const btn = this;
-                const url = btn.getAttribute('data-url');
-                const token = btn.getAttribute('data-token');
-                const id = btn.getAttribute('data-id');
-                const nomor = btn.getAttribute('data-nomor');
-
-                Swal.fire({
-                    title: 'Konfirmasi Pembayaran',
-                    html: `
-                        <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0;">
-                            <div style="width:68px;height:68px;border-radius:50%;
-                                        background:linear-gradient(135deg,#dcfce7,#bbf7d0);
-                                        display:flex;align-items:center;justify-content:center;
-                                        box-shadow:0 4px 16px #16a34a30;">
-                                <i class="ri-secure-payment-line" style="font-size:1.9rem;color:#16a34a;"></i>
-                            </div>
-                            <div style="text-align:center;">
-                                <p style="margin:0 0 6px;font-size:0.95rem;font-weight:700;color:#1e293b;">
-                                    Tandai invoice sebagai lunas?
-                                </p>
-                                <div style="display:inline-flex;align-items:center;gap:6px;
-                                            background:#f0fdf4;color:#16a34a;
-                                            border:1px solid #16a34a30;border-radius:8px;
-                                            padding:3px 10px;font-size:0.8rem;font-weight:700;">
-                                    <i class="ri-file-list-3-line"></i>
-                                    ${nomor}
-                                </div>
-                                <p style="margin:8px 0 0;font-size:0.78rem;color:#94a3b8;">
-                                    Tindakan ini tidak dapat dibatalkan.
-                                </p>
-                            </div>
-                        </div>
-                    `,
-                    showCancelButton: true,
-                    confirmButtonColor: '#16a34a',
-                    cancelButtonColor: '#94a3b8',
-                    confirmButtonText: '<i class="ri-secure-payment-line"></i> Ya, Bayar Sekarang',
-                    cancelButtonText: '<i class="ri-close-line"></i> Batal',
-                    reverseButtons: true,
-                    focusCancel: true,
-                    customClass: {
-                        confirmButton: 'px-4',
-                        cancelButton: 'px-4',
-                    },
-                }).then((result) => {
-                    if (!result.isConfirmed) return;
-
-                    // Loading state
-                    btn.disabled = true;
-                    btn.style.opacity = '0.7';
-                    btn.innerHTML = '<i class="ri-loader-4-line"></i> Memproses...';
-
-                    fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': token,
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                        body: JSON.stringify({ invoice_id: id })
-                    })
-                        .then(res => res.json())
-                        .then(data => {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Pembayaran Berhasil!',
-                                html: `
-                                    <div style="text-align:center;">
-                                        <p style="margin:0;color:#475569;font-size:0.9rem;">
-                                            ${data.message ?? 'Invoice berhasil ditandai sebagai lunas.'}
-                                        </p>
-                                    </div>
-                                `,
-                                confirmButtonColor: '#16a34a',
-                                confirmButtonText: 'OK',
-                                timer: 2000,
-                                timerProgressBar: true,
-                            }).then(() => {
-                                table.ajax.reload(null, false);
-                            });
-                        })
-                        .catch(() => {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Gagal!',
-                                text: 'Terjadi kesalahan. Silakan coba lagi.',
-                                confirmButtonColor: '#dc2626',
-                            });
-
-                            btn.disabled = false;
-                            btn.style.opacity = '1';
-                            btn.innerHTML = '<i class="ri-secure-payment-line" style="font-size:0.85rem;"></i> Bayar Sekarang';
-                        });
-                });
-            });
-
             var api = this.api();
 
-            $('#search-no-po').on('keyup change', function () {
-                if (api.column(1).search() !== this.value)
+            $('#search-invoice-details').on('keyup change', function () {
+                if (api.column(1).search() !== this.value) {
                     api.column(1).search(this.value).draw();
+                }
             });
 
-            $('#search-nama-barang').on('keyup change', function () {
-                if (api.column(2).search() !== this.value)
+            $('#search-delivery-details').on('keyup change', function () {
+                if (api.column(2).search() !== this.value) {
                     api.column(2).search(this.value).draw();
-            });
-
-            $('#search-delivery-no').on('keyup change', function () {
-                if (api.column(3).search() !== this.value)
-                    api.column(3).search(this.value).draw();
-            });
-
-            $('#search-qty-delivered').on('keyup change', function () {
-                if (api.column(4).search() !== this.value)
-                    api.column(4).search(this.value).draw();
-            });
-
-            $('#search-delivered-status').on('change', function () {
-                api.column(5).search(this.value).draw();
-            });
-
-            $('#search-nomor-invoice').on('keyup change', function () {
-                if (api.column(6).search() !== this.value)
-                    api.column(6).search(this.value).draw();
-            });
-
-            $('#search-tgl-invoice').on('keyup change', function () {
-                if (api.column(7).search() !== this.value)
-                    api.column(7).search(this.value).draw();
+                }
             });
 
             $('#search-due-date').on('keyup change', function () {
-                if (api.column(8).search() !== this.value)
-                    api.column(8).search(this.value).draw();
-            });
-
-            $('#search-status-invoice').on('change', function () {
-                api.column(9).search(this.value).draw();
+                if (api.column(3).search() !== this.value) {
+                    api.column(3).search(this.value).draw();
+                }
             });
         }
     });
@@ -3147,34 +2943,7 @@ if (document.getElementById('table-users')) {
         <tr class="column-search-row">
             <th></th>
             <th>
-                <input type="text" id="search-user_name"
-                    class="form-control form-control-sm" 
-                    placeholder="Cari nama / role / terakhir login"
-                    style="min-width:180px;">
-            </th>
-            <th>
-                <input type="text" id="search-email"
-                    class="form-control form-control-sm" 
-                    placeholder="Cari nama / role / terakhir login"
-                    style="min-width:180px;">
-            </th>
-            <th>
-                <select id="search-role_name" class="form-select form-select-sm" style="min-width:120px;">
-                    <option value="">Semua Role</option>
-                    <option value="1">Administrator</option>
-                    <option value="2">Visitor</option>
-                    <option value="3">Owner</option>
-                </select>
-            </th>
-            <th>
-                <select id="search-is_active" class="form-select form-select-sm" style="min-width:120px;">
-                    <option value="">Semua Status</option>
-                    <option value="0">Nonaktif</option>
-                    <option value="1">Aktif</option>
-                </select>
-            </th>
-            <th>
-                <input type="date" id="search-last_login"
+                <input type="text" id="search-detail-users"
                     class="form-control form-control-sm" 
                     placeholder="Cari nama / role / terakhir login"
                     style="min-width:180px;">
@@ -3202,43 +2971,9 @@ if (document.getElementById('table-users')) {
 
             },
             {
-                data: 'user_name',
-                name: 'user_name',
-                className: 'text-center',
-                orderable: true,
-                searchable: true,
-
-            },
-            {
-                data: 'email',
-                name: 'email',
-                className: 'text-center',
-                orderable: true,
-                searchable: true,
-
-            },
-            {
-                data: 'role_name',
-                name: 'role_name',
-                className: 'text-center',
-                orderable: true,
-                searchable: true,
-
-            },
-            {
-                data: 'is_active',
-                name: 'is_active',
-                className: 'text-center',
-                orderable: true,
-                searchable: true,
-
-            },
-            {
-                data: 'last_login',
-                name: 'last_login',
-                className: 'text-center',
-                orderable: true,
-                searchable: true,
+                data: 'user_details',
+                name: 'user_details',
+                className: 'text-center'
 
             },
             {
@@ -3249,40 +2984,20 @@ if (document.getElementById('table-users')) {
                 className: 'text-center'
             },
             ],
-            pageLength: 10,
-            order: [[5, 'desc']],
+            order: [
+                [1, 'desc']
+            ],
+            pageLength: 5,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
             orderCellsTop: true,
             initComplete: function () {
                 var api = this.api();
 
-                // text — user_name
-                $('#search-user_name').on('keyup change clear', function () {
+                // ── Bind search input AFTER init ───────────────────
+                $('#search-detail-users').on('keyup change', function () {
                     if (api.column(1).search() !== this.value) {
                         api.column(1).search(this.value).draw();
                     }
-                });
-
-                // text — email
-                $('#search-email').on('keyup change clear', function () {
-                    if (api.column(2).search() !== this.value) {
-                        api.column(2).search(this.value).draw();
-                    }
-                });
-
-                // select — role_name
-                $('#search-role_name').on('change', function () {
-                    api.column(3).search(this.value).draw();
-                });
-
-                // select — is_active
-                $('#search-is_active').on('change', function () {
-                    api.column(4).search(this.value).draw();
-                });
-
-                // date — last_login
-                $('#search-last_login').on('change', function () {
-                    api.column(5).search(this.value).draw();
                 });
             }
         });
@@ -3405,66 +3120,26 @@ if (document.getElementById('table-incoming')) {
     // ── DataTable Init ────────────────────────────────────────────
     var dt_table = $('#table-incoming');
     $('#table-incoming thead').append(`
-    <tr class="column-search-row">
-        <th></th>
-        <th>
-            <input type="text" id="search-no-po"
-                class="form-control form-control-sm"
-                placeholder="No. PO..."
-                style="min-width:120px;">
-        </th>
-        <th>
-            <input type="text" id="search-nama-barang"
-                class="form-control form-control-sm"
-                placeholder="Nama barang..."
-                style="min-width:150px;">
-        </th>
-        <th>
-            <input type="date" id="search-tanggal-po"
-                class="form-control form-control-sm"
-                style="min-width:160px;">
-        </th>
-        <th>
-            <input type="number" id="search-qty"
-                class="form-control form-control-sm"
-                placeholder="Kuantitas..."
-                min="0"
-                style="min-width:120px;">
-        </th>
-        <th>
-            <input type="text" id="search-harga"
-                class="form-control form-control-sm"
-                placeholder="Rp Harga / unit..."
-                style="min-width:150px;">
-        </th>
-        <th>
-            <input type="text" id="search-total"
-                class="form-control form-control-sm"
-                placeholder="Rp Total harga..."
-                style="min-width:150px;">
-        </th>
-        <th>
-            <input type="text" id="search-modal"
-                class="form-control form-control-sm"
-                placeholder="Rp Modal..."
-                style="min-width:130px;">
-        </th>
-        <th>
-            <input type="text" id="search-margin"
-                class="form-control form-control-sm"
-                placeholder="Rp Margin..."
-                style="min-width:130px;">
-        </th>
-        <th>
-            <input type="text" id="search-tambahan"
-                class="form-control form-control-sm"
-                placeholder="Rp Margin tambahan..."
-                style="min-width:150px;">
-        </th>
-        <th></th>
-        <th></th>
-    </tr>
-`);
+        <tr class="column-search-row">
+            <th></th>
+            <th>
+                <input type="text" id="search-detail-po"
+                    class="form-control form-control-sm" 
+                    placeholder="Cari No.PO / Tgl / Barang / Status..."
+                    style="min-width:180px;">
+            </th>
+            <th>
+                <input type="text" id="search-price"
+                    class="form-control form-control-sm"
+                    placeholder="Cari harga / modal / qty..."
+                    style="min-width:150px;">
+            </th>
+            <th>
+                <input type="text" id="search-margin" class="form-control form-control-sm" placeholder="Cari margin / % / health..." style="min-width:150px;">
+            </th>
+            <th></th>
+        </tr>
+    `);
 
     if (dt_table.length) {
         var table = dt_table.DataTable({
@@ -3474,10 +3149,10 @@ if (document.getElementById('table-incoming')) {
             fixedHeader: true,
             scrollX: true,
             scrollCollapse: true,
-            autoWidth: false,
             ajax: {
                 url: ajaxUrl,
                 dataSrc: function (json) {
+                    // Expects server to return: { data: [...], totals: { qty, total, modal_awal, margin } }
                     if (json.totals) {
                         $('#ft-qty').text(Number(json.totals.qty || 0).toLocaleString('id-ID'));
                         $('#ft-total').text(rupiah(json.totals.total));
@@ -3487,174 +3162,89 @@ if (document.getElementById('table-incoming')) {
                     return json.data;
                 }
             },
-            columnDefs: [
-                { targets: 0, orderable: false, searchable: false, className: 'text-center' }, // No
-                { targets: 1 },  // No PO
-                { targets: 2 },  // Nama Barang
-                { targets: 3 },  // Tanggal PO
-                { targets: 4 },  // Qty
-                { targets: 5 },  // Harga Per Unit
-                { targets: 6 },  // Total Harga PO
-                { targets: 7 },  // Modal Awal
-                { targets: 8 },  // Margin
-                { targets: 9 },  // Tambahan Margin
-                { targets: 10 },  // Status
-                { targets: -1, orderable: false, searchable: false, className: 'text-center' }, // Aksi
+
+            columns: [{
+                data: 'DT_RowIndex',
+                name: 'DT_RowIndex',
+                orderable: false,
+                searchable: false,
+                className: 'text-center fw-medium'
+            },
+            {
+                data: 'detail_po',
+                name: 'detail_po',
+                className: 'fw-medium',
+                orderable: true,
+                searchable: true
+            },
+            {
+                data: 'price_references',
+                name: 'price_references',
+                className: 'fw-medium',
+                orderable: true,
+                searchable: true
+
+            },
+            {
+                data: 'margin_references',
+                name: 'margin_references',
+                className: 'fw-medium',
+                orderable: true,
+                searchable: true
+            },
+            {
+                data: 'action',
+                name: 'action',
+                orderable: false,
+                searchable: false,
+                className: 'text-center fw-medium'
+            }
             ],
-            columns: [
-                {
-                    data: 'DT_RowIndex',
-                    name: 'DT_RowIndex',
-                    orderable: false,
-                    searchable: false,
-                },
-                {
-                    data: 'no_po',
-                    name: 'no_po',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'nama_barang',
-                    name: 'nama_barang',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'tgl_po',
-                    name: 'tgl_po',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'qty',
-                    name: 'qty',
-                    orderable: true,
-                    searchable: true,
-                    className: 'text-center',
-                },
-                {
-                    data: 'harga',
-                    name: 'harga',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'total',
-                    name: 'total',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'modal_awal',
-                    name: 'modal_awal',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'margin',
-                    name: 'margin',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'tambahan_margin',
-                    name: 'tambahan_margin',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'status',
-                    name: 'status',
-                    orderable: true,
-                    searchable: true,
-                    className: 'text-center',
-                },
-                {
-                    data: 'action',
-                    name: 'action',
-                    orderable: false,
-                    searchable: false,
-                },
+
+            order: [
+                [1, 'desc']
             ],
-            order: [[3, 'desc']], // default order by tgl_po
-            pageLength: 10,
+
+            pageLength: 5,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
             orderCellsTop: true,
             initComplete: function () {
                 var api = this.api();
 
-                // col 1 — No PO
-                $('#search-no-po').on('keyup change', function () {
-                    if (api.column(1).search() !== this.value)
+                // ── Bind search input AFTER init ───────────────────
+                $('#search-detail-po').on('keyup change', function () {
+                    if (api.column(1).search() !== this.value) {
                         api.column(1).search(this.value).draw();
+                    }
                 });
-
-                // col 2 — Nama Barang
-                $('#search-nama-barang').on('keyup change', function () {
-                    if (api.column(2).search() !== this.value)
+                $('#search-price').on('keyup change', function () {
+                    if (api.column(2).search() !== this.value) {
                         api.column(2).search(this.value).draw();
+                    }
                 });
-
-                // col 3 — Tanggal PO
-                $('#search-tanggal-po').on('keyup change', function () {
-                    if (api.column(3).search() !== this.value)
-                        api.column(3).search(this.value).draw();
-                });
-
-                // col 4 — Qty
-                $('#search-qty').on('keyup change', function () {
-                    if (api.column(4).search() !== this.value)
-                        api.column(4).search(this.value).draw();
-                });
-
-                // col 5 — Harga / Unit
-                $('#search-harga').on('keyup change', function () {
-                    if (api.column(5).search() !== this.value)
-                        api.column(5).search(this.value).draw();
-                });
-
-                // col 6 — Total Harga
-                $('#search-total').on('keyup change', function () {
-                    if (api.column(6).search() !== this.value)
-                        api.column(6).search(this.value).draw();
-                });
-
-                // col 7 — Modal Awal
-                $('#search-modal').on('keyup change', function () {
-                    if (api.column(7).search() !== this.value)
-                        api.column(7).search(this.value).draw();
-                });
-
-                // col 8 — Margin
                 $('#search-margin').on('keyup change', function () {
-                    if (api.column(8).search() !== this.value)
-                        api.column(8).search(this.value).draw();
-                });
-
-                // col 9 — Tambahan Margin
-                $('#search-tambahan').on('keyup change', function () {
-                    if (api.column(9).search() !== this.value)
-                        api.column(9).search(this.value).draw();
+                    if (api.column(3).search() !== this.value) {
+                        api.column(3).search(this.value).draw();
+                    }
                 });
             }
+
         });
 
-        // ── Delete Handler ─────────────────────────────────────────────────────────
+        // ── Delete Handler ─────────────────────────────────────────
         $(document).on('click', '.btn-delete-ajax', function () {
             const deleteUrl = $(this).data('url');
             const poNo = $(this).data('po');
 
             Swal.fire({
-                title: 'Hapus PO?',
+                title: 'Hapus Data?',
                 text: `Apakah Anda yakin ingin menghapus PO #${poNo}?`,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#e6381a',
-                cancelButtonColor: '#6e7d88',
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
                 confirmButtonText: 'Ya, Hapus!',
                 cancelButtonText: 'Batal',
-                reverseButtons: true,
                 showLoaderOnConfirm: true,
                 preConfirm: () => {
                     return $.ajax({
@@ -3662,31 +3252,18 @@ if (document.getElementById('table-incoming')) {
                         type: 'POST',
                         data: {
                             _method: 'DELETE',
-                            _token: $('meta[name="csrf-token"]').attr('content'),
+                            _token: document.querySelector('meta[name="csrf-token"]').content
                         },
-                        headers: { 'Accept': 'application/json' },
-                    }).then(response => {
-                        if (!response.success) {
-                            Swal.showValidationMessage(response.message);
-                            return false;
+                        error: function (xhr) {
+                            const msg = xhr.responseJSON?.message ?? 'Terjadi kesalahan.';
+                            Swal.showValidationMessage(`Request failed: ${msg}`);
                         }
-                        return response;
-                    }).catch(error => {
-                        Swal.showValidationMessage(
-                            `Request failed: ${error.responseJSON?.message ?? error.statusText}`
-                        );
                     });
                 },
                 allowOutsideClick: () => !Swal.isLoading()
             }).then((result) => {
                 if (result.isConfirmed) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Dihapus!',
-                        text: 'Data PO berhasil dihapus.',
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
+                    Swal.fire('Terhapus!', result.value.message, 'success');
                     table.ajax.reload(null, false);
                     updateCardStats();
                 }
@@ -3859,79 +3436,32 @@ if (document.getElementById('table-po')) {
 
     var dt_table = $('#table-po');
     $('#table-po thead').append(`
-    <tr class="column-search-row">
-        <th></th>
-        <th>
-            <input type="text" id="search-no-po"
-                class="form-control form-control-sm"
-                placeholder="No. PO..."
-                style="min-width:120px;">
-        </th>
-        <th>
-            <input type="text" id="search-nama-barang"
-                class="form-control form-control-sm"
-                placeholder="Nama barang..."
-                style="min-width:150px;">
-        </th>
-        <th>
-            <input type="date" id="search-tanggal-po"
-                class="form-control form-control-sm"
-                style="min-width:160px;">
-        </th>
-        <th>
-            <input type="number" id="search-qty"
-                class="form-control form-control-sm"
-                placeholder="Kuantitas..."
-                min="0"
-                style="min-width:120px;">
-        </th>
-        <th>
-            <input type="text" id="search-harga"
-                class="form-control form-control-sm"
-                placeholder="Rp Harga / unit..."
-                style="min-width:150px;">
-        </th>
-        <th>
-            <input type="text" id="search-total"
-                class="form-control form-control-sm"
-                placeholder="Rp Total harga..."
-                style="min-width:150px;">
-        </th>
-        <th>
-            <input type="text" id="search-modal"
-                class="form-control form-control-sm"
-                placeholder="Rp Modal..."
-                style="min-width:130px;">
-        </th>
-        <th>
-            <input type="text" id="search-margin"
-                class="form-control form-control-sm"
-                placeholder="Rp Margin..."
-                style="min-width:130px;">
-        </th>
-        <th>
-            <input type="text" id="search-tambahan"
-                class="form-control form-control-sm"
-                placeholder="Rp Margin tambahan..."
-                style="min-width:150px;">
-        </th>
-        <th>
-            <select id="search-status" class="form-select form-select-sm" style="min-width:120px;">
-                <option value="">Semua Status</option>
-                <option value="0">Incoming</option>
-                <option value="1">Open</option>
-                <option value="2">Partially Delivered</option>
-                <option value="3">Fully Delivered</option>
-                <option value="4">Partially Delivered & Partially Invoiced</option>
-                <option value="5">Fully Delivered & Partially Invoiced</option>
-                <option value="6">Partially Delivered & Fully Invoiced</option>
-                <option value="7">Fully Delivered & Fully Invoiced</option>
-                <option value="8">Closed</option>
-            </select>
-        </th>
-        <th></th>
-    </tr>
-`);
+        <tr class="column-search-row">
+            <th></th>
+            <th>
+                <input type="text" id="search-detail-po"
+                    class="form-control form-control-sm" 
+                    placeholder="Cari No.PO / Tgl / Barang / Status..."
+                    style="min-width:180px;">
+            </th>
+            <th>
+                <input type="text" id="search-relation_details"
+                    class="form-control form-control-sm" 
+                    placeholder="Cari delivery / invoice / payment"
+                    style="min-width:120px;">
+            </th>
+            <th>
+                <input type="text" id="search-price"
+                    class="form-control form-control-sm"
+                    placeholder="Cari harga / modal / qty..."
+                    style="min-width:150px;">
+            </th>
+            <th>
+                <input type="text" id="search-margin" class="form-control form-control-sm" placeholder="Cari margin / % / health..." style="min-width:150px;">
+            </th>
+            <th></th>
+        </tr>
+    `);
 
 
     if (dt_table.length) {
@@ -3956,163 +3486,111 @@ if (document.getElementById('table-po')) {
                 }
             },
             columnDefs: [
-                { targets: 0, orderable: false, searchable: false, className: 'text-center' }, // No
-                { targets: 1, },  // No PO
-                { targets: 2, },  // Nama Barang
-                { targets: 3, },  // Tanggal PO
-                { targets: 4, },  // Qty
-                { targets: 5, },  // Harga Per Unit
-                { targets: 6, },  // Total Harga PO
-                { targets: 7, },  // Modal Awal
-                { targets: 8, },  // Margin
-                { targets: 9, },  // Tambahan Margin
-                { targets: 10, },  // Status
-                { targets: -1, orderable: false, searchable: false, className: 'text-center' }, // Aksi
-            ],
-            columns: [
                 {
-                    data: 'DT_RowIndex',
-                    name: 'DT_RowIndex',
+                    targets: 0,     // No
+                    width: '50px',
+                    className: 'text-center',
+                },
+                {
+                    targets: 1,     // Detail PO
+                    width: 'auto',
+                },
+                {
+                    targets: 2,     // Delivery / Invoice / Payment
+                    width: 'auto',
+                },
+                {
+                    targets: 3,     // Detail Harga PO
+                    width: 'auto',
+                },
+                {
+                    targets: 4,     // Detail Margin PO
+                    width: 'auto',
+                },
+                {
+                    targets: -1,    // Aksi
+                    width: '60px',
                     orderable: false,
                     searchable: false,
-                },
-                {
-                    data: 'no_po',
-                    name: 'no_po',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'nama_barang',
-                    name: 'nama_barang',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'tgl_po',
-                    name: 'tgl_po',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'qty',
-                    name: 'qty',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'harga',
-                    name: 'harga',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'total',
-                    name: 'total',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'modal_awal',
-                    name: 'modal_awal',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'margin',
-                    name: 'margin',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'tambahan_margin',
-                    name: 'tambahan_margin',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'status',
-                    name: 'status',
-                    orderable: true,
-                    searchable: true,
-                },
-                {
-                    data: 'action',
-                    name: 'action',
-                    orderable: false,
-                    searchable: false,
-                },
+                    className: 'text-center',
+                }
             ],
-            order: [[3, 'desc']], // default order by tgl_po
-            pageLength: 10,
+            columns: [{
+                data: 'DT_RowIndex',
+                name: 'DT_RowIndex',
+                orderable: false,
+                searchable: false,
+            },
+            {
+                data: 'detail_po',
+                name: 'detail_po',
+                className: 'fw-medium',
+                orderable: true,
+                searchable: true
+            },
+            {
+                data: 'relation_details',
+                name: 'relation_details',
+                className: 'fw-medium text-center',
+                orderable: true,
+                searchable: true
+            },
+            {
+                data: 'price_references',
+                name: 'price_references',
+                className: 'fw-medium',
+                orderable: true,
+                searchable: true
+            },
+            {
+                data: 'margin_references',
+                name: 'margin_references',
+                className: 'fw-medium',
+                orderable: true,
+                searchable: true
+            },
+            {
+                data: 'action',
+                name: 'action',
+                orderable: false,
+                searchable: false,
+            }
+            ],
+            order: [
+                [1, 'desc']
+            ],
+            pageLength: 5,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
             orderCellsTop: true,
             initComplete: function () {
                 var api = this.api();
 
-                // col 1 — No PO
-                $('#search-no-po').on('keyup change', function () {
-                    if (api.column(1).search() !== this.value)
+                // ── Bind search input AFTER init ───────────────────
+                $('#search-detail-po').on('keyup change', function () {
+                    if (api.column(1).search() !== this.value) {
                         api.column(1).search(this.value).draw();
+                    }
                 });
 
-                // col 2 — Nama Barang
-                $('#search-nama-barang').on('keyup change', function () {
-                    if (api.column(2).search() !== this.value)
+                $('#search-relation_details').on('keyup change', function () {
+                    if (api.column(2).search() !== this.value) {
                         api.column(2).search(this.value).draw();
+                    }
                 });
-
-                // col 3 — Tanggal PO
-                $('#search-tanggal-po').on('keyup change', function () {
-                    if (api.column(3).search() !== this.value)
+                $('#search-price').on('keyup change', function () {
+                    if (api.column(3).search() !== this.value) {
                         api.column(3).search(this.value).draw();
+                    }
                 });
-
-                // col 4 — Qty
-                $('#search-qty').on('keyup change', function () {
-                    if (api.column(4).search() !== this.value)
-                        api.column(4).search(this.value).draw();
-                });
-
-                // col 5 — Harga / Unit
-                $('#search-harga').on('keyup change', function () {
-                    if (api.column(5).search() !== this.value)
-                        api.column(5).search(this.value).draw();
-                });
-
-                // col 6 — Total Harga
-                $('#search-total').on('keyup change', function () {
-                    if (api.column(6).search() !== this.value)
-                        api.column(6).search(this.value).draw();
-                });
-
-                // col 7 — Modal Awal
-                $('#search-modal').on('keyup change', function () {
-                    if (api.column(7).search() !== this.value)
-                        api.column(7).search(this.value).draw();
-                });
-
-                // col 8 — Margin
                 $('#search-margin').on('keyup change', function () {
-                    if (api.column(8).search() !== this.value)
-                        api.column(8).search(this.value).draw();
-                });
-
-                // col 9 — Tambahan Margin
-                $('#search-tambahan').on('keyup change', function () {
-                    if (api.column(9).search() !== this.value)
-                        api.column(9).search(this.value).draw();
-                });
-
-                // col 10 — Status
-                $('#search-status').on('change', function () {
-                    if (api.column(10).search() !== this.value)
-                        api.column(10).search(this.value).draw();
+                    if (api.column(4).search() !== this.value) {
+                        api.column(4).search(this.value).draw();
+                    }
                 });
             }
         });
 
-        // ── Delete Handler ─────────────────────────────────────────────────────────
+        // ── Delete Handler ─────────────────────────────────────────
         $(document).on('click', '.btn-delete-ajax', function () {
             const deleteUrl = $(this).data('url');
             const poNo = $(this).data('po');
@@ -4131,12 +3609,14 @@ if (document.getElementById('table-po')) {
                 preConfirm: () => {
                     return $.ajax({
                         url: deleteUrl,
-                        type: 'POST',
+                        type: 'POST', // ← change to POST
                         data: {
-                            _method: 'DELETE',
-                            _token: $('meta[name="csrf-token"]').attr('content'),
+                            _method: 'DELETE', // ← spoof DELETE
+                            _token: $('meta[name="csrf-token"]').attr('content'), // ← move token to data
                         },
-                        headers: { 'Accept': 'application/json' },
+                        headers: {
+                            'Accept': 'application/json',
+                        },
                     }).then(response => {
                         if (!response.success) {
                             Swal.showValidationMessage(response.message);
@@ -4302,70 +3782,16 @@ if (document.getElementById('paymentTable')) {
         <tr class="column-search-row">
             <th></th>
             <th>
-                <input type="text" id="search-nomor-po"
+                <input type="text" id="search-detail-pembayaran"
                     class="form-control form-control-sm"
-                    placeholder="No. PO..."
-                    style="min-width:130px;">
+                    placeholder="Cari nominal / tgl / barang / metode..."
+                    style="min-width:200px;">
             </th>
             <th>
-                <input type="text" id="search-nama-barang"
+                <input type="text" id="search-payment-estimation"
                     class="form-control form-control-sm"
-                    placeholder="Nama barang..."
-                    style="min-width:150px;">
-            </th>
-            <th>
-                <input type="text" id="search-nomor-invoice"
-                    class="form-control form-control-sm"
-                    placeholder="No. invoice..."
-                    style="min-width:140px;">
-            </th>
-            <th>
-                <select id="search-invoice-status" class="form-select form-select-sm" style="min-width:130px;">
-                    <option value="">Semua Status</option>
-                    <option value="0">Unpaid</option>
-                    <option value="1">Paid</option>
-                </select>
-            </th>
-            <th>
-                <input type="date" id="search-tanggal-pembayaran"
-                    class="form-control form-control-sm"
+                    placeholder="Cari estimasi / status..."
                     style="min-width:160px;">
-            </th>
-            <th>
-                <input type="text" id="search-nominal"
-                    class="form-control form-control-sm"
-                    placeholder="Rp Nominal..."
-                    style="min-width:140px;">
-            </th>
-            <th>
-                <input type="text" id="search-metode-bayar"
-                    class="form-control form-control-sm"
-                    placeholder="Metode bayar..."
-                    style="min-width:140px;">
-            </th>
-            <th>
-                <input type="text" id="search-bukti-bayar"
-                    class="form-control form-control-sm"
-                    placeholder="Bukti bayar..."
-                    style="min-width:130px;">
-            </th>
-            <th>
-                <input type="text" id="search-keterangan"
-                    class="form-control form-control-sm"
-                    placeholder="Keterangan..."
-                    style="min-width:130px;">
-            </th>
-            <th>
-                <input type="date" id="search-estimasi-pembayaran"
-                    class="form-control form-control-sm"
-                    style="min-width:160px;">
-            </th>
-            <th>
-                <select id="search-payment-status" class="form-select form-select-sm" style="min-width:130px;">
-                    <option value="">Semua Status</option>
-                    <option value="0">Unpaid</option>
-                    <option value="1">Paid</option>
-                </select>
             </th>
             <th></th>
         </tr>
@@ -4379,255 +3805,190 @@ if (document.getElementById('paymentTable')) {
         scrollX: true,
         scrollCollapse: true,
         ajax: ajaxUrl,
-        columns: [
-            {
-                data: 'DT_RowIndex',
-                name: 'DT_RowIndex',
-                orderable: false,
-                searchable: false,
-                className: 'col-no'
-            },
-            {
-                data: 'no_po',
-                name: 'no_po',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'nama_barang',
-                name: 'nama_barang',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'nomor_invoice',
-                name: 'nomor_invoice',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'status_invoice',
-                name: 'status_invoice',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'payment_date',
-                name: 'payment_date',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'amount',
-                name: 'amount',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'metode_bayar',
-                name: 'metode_bayar',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'bukti_bayar',
-                name: 'bukti_bayar',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'description',
-                name: 'description',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'payment_date_estimation',
-                name: 'payment_date_estimation',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'payment_status',
-                name: 'payment_status',
-                orderable: true,
-                searchable: true,
-            },
-            {
-                data: 'action',
-                name: 'action',
-                orderable: false,
-                searchable: false,
-                className: 'text-center'
-            },
+        columns: [{
+            data: 'DT_RowIndex',
+            name: 'DT_RowIndex',
+            orderable: false,
+            searchable: false,
+            className: 'col-no'
+        },
+        {
+            data: 'detail_pembayaran',
+            name: 'detail_pembayaran',
+            orderable: true,
+            searchable: true,
+        },
+        {
+            data: 'payment_date_estimation',
+            name: 'payment_date_estimation',
+            orderable: true,
+            searchable: true,
+        },
+        {
+            data: 'action',
+            name: 'action',
+            orderable: false,
+            searchable: false,
+            className: 'text-center'
+        }
         ],
-        pageLength: 10,
-        order: [[1, 'desc']],
+        pageLength: 5,
+        order: [
+            [1, 'desc']
+        ],
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
-        orderCellsTop: true,
-        initComplete: function () {
-            $(document).on('click', '.btn-pay-now', function () {
-                const btn = this;
-                const url = btn.getAttribute('data-url');
-                const token = btn.getAttribute('data-token');
-                const id = btn.getAttribute('data-id');
-                const nomor = btn.getAttribute('data-nomor');
+        drawCallback: function () {
+            var elements = Array.from(document.getElementsByClassName("payment-timer"));
 
-                Swal.fire({
-                    title: 'Konfirmasi Pembayaran',
-                    html: `
-                        <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0;">
-                            <div style="width:68px;height:68px;border-radius:50%;
-                                        background:linear-gradient(135deg,#dcfce7,#bbf7d0);
-                                        display:flex;align-items:center;justify-content:center;
-                                        box-shadow:0 4px 16px #16a34a30;">
-                                <i class="ri-secure-payment-line" style="font-size:1.9rem;color:#16a34a;"></i>
-                            </div>
-                            <div style="text-align:center;">
-                                <p style="margin:0 0 6px;font-size:0.95rem;font-weight:700;color:#1e293b;">
-                                    Tandai invoice sebagai lunas?
-                                </p>
-                                <div style="display:inline-flex;align-items:center;gap:6px;
-                                            background:#f0fdf4;color:#16a34a;
-                                            border:1px solid #16a34a30;border-radius:8px;
-                                            padding:3px 10px;font-size:0.8rem;font-weight:700;">
-                                    <i class="ri-file-list-3-line"></i>
-                                    ${nomor}
-                                </div>
-                                <p style="margin:8px 0 0;font-size:0.78rem;color:#94a3b8;">
-                                    Tindakan ini tidak dapat dibatalkan.
-                                </p>
-                            </div>
-                        </div>
-                    `,
-                    showCancelButton: true,
-                    confirmButtonColor: '#16a34a',
-                    cancelButtonColor: '#94a3b8',
-                    confirmButtonText: '<i class="ri-secure-payment-line"></i> Ya, Bayar Sekarang',
-                    cancelButtonText: '<i class="ri-close-line"></i> Batal',
-                    reverseButtons: true,
-                    focusCancel: true,
-                    customClass: {
-                        confirmButton: 'px-4',
-                        cancelButton: 'px-4',
-                    },
-                }).then((result) => {
-                    if (!result.isConfirmed) return;
+            elements.forEach(function (el) {
+                var wrapper = el.closest('.timer-wrapper');
+                var target = wrapper ? wrapper.getAttribute('data-target') : null;
+                var paymentId = wrapper ? wrapper.getAttribute('data-id') : null;
+                if (!target || !paymentId) return;
 
-                    // Loading state
-                    btn.disabled = true;
-                    btn.style.opacity = '0.7';
-                    btn.innerHTML = '<i class="ri-loader-4-line"></i> Memproses...';
+                if (el._countdownInterval) {
+                    clearInterval(el._countdownInterval);
+                    el._countdownInterval = null;
+                }
 
-                    fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': token,
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                        body: JSON.stringify({ invoice_id: id })
-                    })
-                        .then(res => res.json())
-                        .then(data => {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Pembayaran Berhasil!',
-                                html: `
-                                    <div style="text-align:center;">
-                                        <p style="margin:0;color:#475569;font-size:0.9rem;">
-                                            ${data.message ?? 'Invoice berhasil ditandai sebagai lunas.'}
-                                        </p>
-                                    </div>
-                                `,
-                                confirmButtonColor: '#16a34a',
-                                confirmButtonText: 'OK',
-                                timer: 2000,
-                                timerProgressBar: true,
-                            }).then(() => {
-                                table.ajax.reload(null, false);
-                            });
+                (function (el, targetDate, id) {
+                    function formatText(duration) {
+                        return formatDuration(duration, {
+                            format: ['years', 'months', 'days', 'hours', 'minutes'],
+                            zero: false,
+                            delimiter: ' ',
+                            locale: idLocale
                         })
-                        .catch(() => {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Gagal!',
-                                text: 'Terjadi kesalahan. Silakan coba lagi.',
-                                confirmButtonColor: '#dc2626',
-                            });
+                            .replace(/(\d+) years?/, '$1 Tahun')
+                            .replace(/(\d+) months?/, '$1 Bulan')
+                            .replace(/(\d+) days?/, '$1 Hari')
+                            .replace(/(\d+) hours?/, '$1 Jam')
+                            .replace(/(\d+) minutes?/, '$1 Menit');
+                    }
 
-                            btn.disabled = false;
-                            btn.style.opacity = '1';
-                            btn.innerHTML = '<i class="ri-secure-payment-line" style="font-size:0.85rem;"></i> Bayar Sekarang';
-                        });
+                    function updateCountdown() {
+                        var now = new Date();
+                        var end = new Date(targetDate);
+
+                        if (!end) { el.textContent = '—'; return; }
+
+                        if (now >= end) {
+                            var elapsed = intervalToDuration({ start: end, end: now });
+                            el.innerHTML = '<small style="color:#dc3545;">' + formatText(elapsed) + ' yang lalu</small>';
+                            clearInterval(el._countdownInterval);
+                            return;
+                        }
+
+                        var duration = intervalToDuration({ start: now, end: end });
+                        el.textContent = formatText(duration) + ' lagi';
+                    }
+
+                    updateCountdown();
+                    el._countdownInterval = setInterval(updateCountdown, 1000);
+                })(el, target, paymentId);
+            });
+
+            // ── Bayar Sekarang — strip duplicate listeners on redraw ──
+            document.querySelectorAll('.bayar-sekarang-btn').forEach(function (btn) {
+                btn.replaceWith(btn.cloneNode(true));
+            });
+
+            document.querySelectorAll('.bayar-sekarang-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    const url = btn.getAttribute('data-url');
+                    const token = btn.getAttribute('data-token');
+                    const id = btn.getAttribute('data-id');
+                    const state = btn.getAttribute('data-state');
+
+                    const isOverdue = state === 'overdue';
+                    const isDueToday = state === 'due-today';
+                    const isPaid = state === 'paid';
+
+                    const warningHtml = isOverdue
+                        ? `<p style="margin:8px 0 0;font-size:0.78rem;color:#ef4444;"><i class="ri-error-warning-line"></i> Pembayaran ini sudah melewati estimasi.</p>`
+                        : isDueToday
+                            ? `<p style="margin:8px 0 0;font-size:0.78rem;color:#d97706;"><i class="ri-alarm-line"></i> Pembayaran ini jatuh tempo hari ini.</p>`
+                            : isPaid
+                                ? `<p style="margin:8px 0 0;font-size:0.78rem;color:#10b981;"><i class="ri-checkbox-circle-line"></i> Pembayaran ini sudah tercatat sebagai lunas.</p>`
+                                : '';
+
+                    Swal.fire({
+                        title: 'Konfirmasi Pembayaran',
+                        html: `
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:6px 0;">
+                        <div style="width:56px;height:56px;border-radius:50%;background:#f0fdf4;display:flex;align-items:center;justify-content:center;">
+                            <i class="ri-secure-payment-line" style="font-size:1.6rem;color:#10b981;"></i>
+                        </div>
+                        <div style="text-align:center;">
+                            <p style="margin:0;font-size:0.92rem;color:#475569;">
+                                Tandai pembayaran ini sebagai <strong>sudah dibayar</strong>?
+                            </p>
+                            ${warningHtml}
+                        </div>
+                    </div>
+                `,
+                        showCancelButton: true,
+                        confirmButtonColor: '#10b981',
+                        cancelButtonColor: '#94a3b8',
+                        confirmButtonText: '<i class="ri-secure-payment-line"></i> Ya, Bayar Sekarang',
+                        cancelButtonText: 'Batal',
+                        focusCancel: true,
+                    }).then((result) => {
+                        if (!result.isConfirmed) return;
+
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="ri-loader-4-line"></i> Memproses...';
+
+                        fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': token,
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            body: JSON.stringify({ payment_id: id })
+                        })
+                            .then(res => res.json())
+                            .then(data => {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Berhasil!',
+                                    text: data.message ?? 'Pembayaran berhasil dikonfirmasi.',
+                                    confirmButtonColor: '#10b981',
+                                }).then(() => {
+                                    table.ajax.reload(null, false);
+                                });
+                            })
+                            .catch(() => {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Gagal!',
+                                    text: 'Terjadi kesalahan. Coba lagi.',
+                                    confirmButtonColor: '#d33',
+                                });
+
+                                btn.disabled = false;
+                                btn.innerHTML = '<i class="ri-secure-payment-line"></i> Bayar Sekarang';
+                            });
+                    });
                 });
             });
-
+        },
+        orderCellsTop: true,
+        initComplete: function () {
             var api = this.api();
 
-            // col 1 — no_po
-            $('#search-nomor-po').on('keyup change', function () {
-                if (api.column(1).search() !== this.value)
+            $('#search-detail-pembayaran').on('keyup change', function () {
+                if (api.column(1).search() !== this.value) {
                     api.column(1).search(this.value).draw();
+                }
             });
 
-            // col 2 — nama_barang
-            $('#search-nama-barang').on('keyup change', function () {
-                if (api.column(2).search() !== this.value)
+            $('#search-payment-estimation').on('keyup change', function () {
+                if (api.column(2).search() !== this.value) {
                     api.column(2).search(this.value).draw();
-            });
-
-            // col 3 — nomor_invoice
-            $('#search-nomor-invoice').on('keyup change', function () {
-                if (api.column(3).search() !== this.value)
-                    api.column(3).search(this.value).draw();
-            });
-
-            // col 4 — status_invoice (select)
-            $('#search-invoice-status').on('change', function () {
-                api.column(4).search(this.value).draw();
-            });
-
-            // col 5 — payment_date
-            $('#search-tanggal-pembayaran').on('keyup change', function () {
-                if (api.column(5).search() !== this.value)
-                    api.column(5).search(this.value).draw();
-            });
-
-            // col 6 — amount
-            $('#search-nominal').on('keyup change', function () {
-                if (api.column(6).search() !== this.value)
-                    api.column(6).search(this.value).draw();
-            });
-
-            // col 7 — metode_bayar
-            $('#search-metode-bayar').on('keyup change', function () {
-                if (api.column(7).search() !== this.value)
-                    api.column(7).search(this.value).draw();
-            });
-
-            // col 8 — bukti_bayar
-            $('#search-bukti-bayar').on('keyup change', function () {
-                if (api.column(8).search() !== this.value)
-                    api.column(8).search(this.value).draw();
-            });
-
-            // col 9 — description
-            $('#search-keterangan').on('keyup change', function () {
-                if (api.column(9).search() !== this.value)
-                    api.column(9).search(this.value).draw();
-            });
-
-            // col 10 — payment_date_estimation
-            $('#search-estimasi-pembayaran').on('keyup change', function () {
-                if (api.column(10).search() !== this.value)
-                    api.column(10).search(this.value).draw();
-            });
-
-            // col 11 — payment_status (select)
-            $('#search-payment-status').on('change', function () {
-                api.column(11).search(this.value).draw();
+                }
             });
         }
     });
@@ -4855,14 +4216,7 @@ if (document.getElementById('investment-table')) {
 
     var columns = [
         { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
-        { data: 'modal_setor_awal', name: 'modal_setor_awal', orderable: true, searchable: true },
-        { data: 'modal_po_baru', name: 'modal_po_baru', orderable: true, searchable: true },
-        { data: 'margin', name: 'margin', orderable: true, searchable: true },
-        { data: 'pencairan_modal', name: 'pencairan_modal', orderable: true, searchable: true },
-        { data: 'margin_cair', name: 'margin_cair', orderable: true, searchable: true },
-        { data: 'pengembalian_dana', name: 'pengembalian_dana', orderable: true, searchable: true },
-        { data: 'dana_tersedia', name: 'dana_tersedia', orderable: true, searchable: true },
-        { data: 'tgl_investasi', name: 'tgl_investasi', orderable: true, searchable: true },
+        { data: 'investasi_details', name: 'investasi_details', orderable: true, searchable: true },
     ];
 
     if (role !== 2) {
@@ -4876,51 +4230,10 @@ if (document.getElementById('investment-table')) {
     <tr class="column-search-row">
         <th></th>
         <th>
-            <input type="text" id="search-modal_setor_awal"
-                class="form-control form-control-sm"
-                placeholder="Rp Modal setor awal..."
-                style="min-width:160px;">
-        </th>
-        <th>
-            <input type="text" id="search-modal_po_baru"
-                class="form-control form-control-sm"
-                placeholder="Rp Modal PO baru..."
-                style="min-width:150px;">
-        </th>
-        <th>
-            <input type="text" id="search-margin"
-                class="form-control form-control-sm"
-                placeholder="Rp Margin..."
-                style="min-width:130px;">
-        </th>
-        <th>
-            <input type="text" id="search-pencairan_modal"
-                class="form-control form-control-sm"
-                placeholder="Rp Pencairan modal..."
-                style="min-width:160px;">
-        </th>
-        <th>
-            <input type="text" id="search-margin_cair"
-                class="form-control form-control-sm"
-                placeholder="Rp Margin cair..."
-                style="min-width:140px;">
-        </th>
-        <th>
-            <input type="text" id="search-pengembalian_dana"
-                class="form-control form-control-sm"
-                placeholder="Rp Pengembalian dana..."
-                style="min-width:170px;">
-        </th>
-        <th>
-            <input type="text" id="search-dana_tersedia"
-                class="form-control form-control-sm"
-                placeholder="Rp Dana tersedia..."
-                style="min-width:150px;">
-        </th>
-        <th>
-            <input type="date" id="search-tgl_investasi"
-                class="form-control form-control-sm"
-                style="min-width:160px;">
+            <input type="text" id="search-detail-investasi"
+                class="form-control form-control-sm" 
+                placeholder="Cari modal setor / margin tersedia / dana tersedia"
+                style="min-width:180px;">
         </th>
         ${role !== 2 ? '<th></th>' : ''}
     </tr>
@@ -4946,51 +4259,16 @@ if (document.getElementById('investment-table')) {
                 }
             },
             columns: columns,
-            pageLength: 10,
+            pageLength: 5,
             order: [[1, 'desc']],
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
             orderCellsTop: true,
             initComplete: function () {
                 var api = this.api();
 
-                $('#search-modal_setor_awal').on('keyup change', function () {
+                $('#search-detail-investasi').on('keyup change', function () {
                     if (api.column(1).search() !== this.value) {
                         api.column(1).search(this.value).draw();
-                    }
-                });
-                $('#search-modal_po_baru').on('keyup change', function () {
-                    if (api.column(2).search() !== this.value) {
-                        api.column(2).search(this.value).draw();
-                    }
-                });
-                $('#search-margin').on('keyup change', function () {
-                    if (api.column(3).search() !== this.value) {
-                        api.column(3).search(this.value).draw();
-                    }
-                });
-                $('#search-pencairan_modal').on('keyup change', function () {
-                    if (api.column(4).search() !== this.value) {
-                        api.column(4).search(this.value).draw();
-                    }
-                });
-                $('#search-margin_cair').on('keyup change', function () {
-                    if (api.column(5).search() !== this.value) {
-                        api.column(5).search(this.value).draw();
-                    }
-                });
-                $('#search-pengembalian_dana').on('keyup change', function () {
-                    if (api.column(6).search() !== this.value) {
-                        api.column(6).search(this.value).draw();
-                    }
-                });
-                $('#search-dana_tersedia').on('keyup change', function () {
-                    if (api.column(7).search() !== this.value) {
-                        api.column(7).search(this.value).draw();
-                    }
-                });
-                $('#search-tgl_investasi').on('keyup change', function () {
-                    if (api.column(8).search() !== this.value) {
-                        api.column(8).search(this.value).draw();
                     }
                 });
             }
@@ -5127,7 +4405,7 @@ if (document.getElementById('customerTable')) {
         fixedHeader: true,
         ajax: ajaxUrl,
         columns: columns,
-        pageLength: 10,
+        pageLength: 5,
         order: [
             [2, 'desc']
         ],
@@ -5420,400 +4698,6 @@ if (document.getElementById("investasiForm")) {
                 btn.prop('disabled', false).text('Save Investment');
                 var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Error saving data';
                 Swal.fire('Error', msg, 'error');
-            }
-        });
-    });
-}
-
-if (document.getElementById('summary-table')) {
-    document.addEventListener('DOMContentLoaded', function () {
-        if (document.getElementById('summary-truncate')) {
-            document.getElementById('summary-truncate').addEventListener('click', async function () {
-                let validator = null;
-
-                await Swal.fire({
-                    template: '#truncate-form',
-
-                    didOpen: () => {
-                        validator = new JustValidate('#summary-truncate-form', {
-                            successFieldCssClass: 'is-valid',
-                            errorFieldCssClass: 'is-invalid',
-                            errorLabelCssClass: 'invalid-feedback',
-                            successLabelCssClass: 'valid-feedback',
-                            validateBeforeSubmitting: true,
-                        });
-
-                        validator
-                            .addField('#swal-reason', [
-                                { rule: 'required', errorMessage: 'Alasan wajib diisi.' },
-                                { rule: 'minLength', value: 10, errorMessage: 'Alasan minimal 10 karakter.' },
-                            ], { successMessage: 'Alasan sudah benar' })
-                            .addField('#swal-confirm', [
-                                { rule: 'required', errorMessage: 'Konfirmasi wajib diisi.' },
-                                {
-                                    validator: (value) => value === 'SAYA YAKIN ATAS TINDAKAN INI',
-                                    errorMessage: 'Ketik tepat: SAYA YAKIN ATAS TINDAKAN INI',
-                                },
-                            ], { successMessage: 'Konfirmasi sudah benar' });
-                    },
-
-                    preConfirm: () => {
-                        if (!validator) {
-                            Swal.showValidationMessage('Validator belum siap, coba lagi.');
-                            return false;
-                        }
-                        return new Promise((resolve) => {
-                            validator.revalidate().then((isValid) => {
-                                if (!isValid) {
-                                    Swal.showValidationMessage('Harap isi semua field dengan benar.');
-                                    resolve(false);
-                                } else {
-                                    Swal.resetValidationMessage();
-                                    resolve(true);
-                                }
-                            });
-                        });
-                    },
-
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-
-                }).then(async (swalResult) => {
-                    if (!swalResult.isConfirmed) return;
-
-                    try {
-                        const formValues = {
-                            reason: document.querySelector('#swal-reason').value,
-                            confirm: document.querySelector('#swal-confirm').value,
-                        };
-
-                        const form = document.getElementById('summary-truncate-form');
-
-                        const response = await fetch(form.action, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                            },
-                            body: JSON.stringify(formValues),
-                        });
-
-                        const data = await response.json();
-
-                        if (response.ok) {
-                            await Swal.fire({ title: 'Berhasil!', text: data.message ?? 'Seluruh PO berhasil dihapus.', icon: 'success', confirmButtonColor: '#198754' });
-                            window.location.reload();
-                        } else if (response.status === 422) {
-                            const errors = data.errors ? Object.values(data.errors).flat().join('<br>') : data.message ?? 'Validasi gagal.';
-                            Swal.fire({ title: 'Validasi Gagal!', html: errors, icon: 'warning', confirmButtonColor: '#ffc107' });
-                        } else {
-                            Swal.fire({ title: 'Gagal!', text: data.message ?? 'Terjadi kesalahan.', icon: 'error', confirmButtonColor: '#dc3545' });
-                        }
-
-                    } catch (error) {
-                        Swal.fire({ title: 'Koneksi Error!', text: 'Tidak dapat terhubung ke server.', icon: 'error', confirmButtonColor: '#dc3545' });
-                    }
-                });
-            });
-        }
-    });
-
-    const tableEl = document.getElementById('summary-table');
-    const ajaxUrl = tableEl.getAttribute('data-url');   // FIX #1
-
-    $.ajaxSetup({
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-        }
-    });
-
-    var role = parseInt($('#summary-table').data('role'));
-
-    var columns = [
-        { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
-        { data: 'tgl_investasi', name: 'tgl_investasi', orderable: true, searchable: true },
-        { data: 'dana_tersedia', name: 'dana_tersedia', orderable: true, searchable: true },
-        { data: 'investasi_dikembalikan', name: 'investasi_dikembalikan', orderable: true, searchable: true },
-        { data: 'investasi_tambahan', name: 'investasi_tambahan', orderable: true, searchable: true },
-        { data: 'investasi_ditahan', name: 'investasi_ditahan', orderable: true, searchable: true },
-        { data: 'total_investasi_transfer', name: 'total_investasi_transfer', orderable: true, searchable: true },
-        { data: 'total_transfer_investasi', name: 'total_transfer_investasi', orderable: true, searchable: true },
-        { data: 'margin_diterima', name: 'margin_diterima', orderable: true, searchable: true },
-        { data: 'margin_tersedia', name: 'margin_tersedia', orderable: true, searchable: true },
-        { data: 'margin_ditahan', name: 'margin_ditahan', orderable: true, searchable: true },
-        { data: 'total_margin', name: 'total_margin', orderable: true, searchable: true },
-        { data: 'sisa_margin', name: 'sisa_margin', orderable: true, searchable: true },
-    ];
-
-    if (role !== 2) {
-        columns.push({ data: 'action', name: 'action', orderable: false, searchable: false });
-    }
-
-    var dt_table = $('#summary-table');
-
-    $('#summary-table thead').append(`
-    <tr class="column-search-row">
-        <th></th>
-        <th>
-            <input type="date" id="search-tanggal_transfer"
-                class="form-control form-control-sm" 
-                placeholder="Cari modal setor / margin tersedia / dana tersedia"
-                style="min-width:180px;">
-        </th>
-        <th>
-            <input type="text" id="search-dana_tersedia"
-                class="form-control form-control-sm" 
-                placeholder="Cari modal setor / margin tersedia / dana tersedia"
-                style="min-width:180px;">
-        </th>
-        <th>
-            <input type="text" id="search-investasi_dikembalikan"
-                class="form-control form-control-sm" 
-                placeholder="Cari modal setor / margin tersedia / dana tersedia"
-                style="min-width:180px;">
-        </th>
-        <th>
-            <input type="text" id="search-investasi_tambahan"
-                class="form-control form-control-sm" 
-                placeholder="Cari modal setor / margin tersedia / dana tersedia"
-                style="min-width:180px;">
-        </th>
-        <th>
-            <input type="text" id="search-investasi_ditahan"
-                class="form-control form-control-sm" 
-                placeholder="Cari modal setor / margin tersedia / dana tersedia"
-                style="min-width:180px;">
-        </th>
-        <th>
-            <input type="text" id="search-total_investasi_transfer"
-                class="form-control form-control-sm" 
-                placeholder="Cari modal setor / margin tersedia / dana tersedia"
-                style="min-width:180px;">
-        </th>
-        <th>
-            <input type="text" id="search-total_transfer_investasi"
-                class="form-control form-control-sm" 
-                placeholder="Cari modal setor / margin tersedia / dana tersedia"
-                style="min-width:180px;">
-        </th>
-        <th>
-            <input type="text" id="search-margin_diterima"
-                class="form-control form-control-sm" 
-                placeholder="Cari modal setor / margin tersedia / dana tersedia"
-                style="min-width:180px;">
-        </th>
-        <th>
-            <input type="text" id="search-margin_tersedia"
-                class="form-control form-control-sm" 
-                placeholder="Cari modal setor / margin tersedia / dana tersedia"
-                style="min-width:180px;">
-        </th>
-        <th>
-            <input type="text" id="search-margin_ditahan"
-                class="form-control form-control-sm" 
-                placeholder="Cari modal setor / margin tersedia / dana tersedia"
-                style="min-width:180px;">
-        </th>
-        <th>
-            <input type="text" id="search-total_margin"
-                class="form-control form-control-sm" 
-                placeholder="Cari modal setor / margin tersedia / dana tersedia"
-                style="min-width:180px;">
-        </th>
-        <th>
-            <input type="text" id="search-sisa_margin"
-                class="form-control form-control-sm" 
-                placeholder="Cari modal setor / margin tersedia / dana tersedia"
-                style="min-width:180px;">
-        </th>
-        ${role !== 2 ? '<th></th>' : ''}
-    </tr>
-`);
-
-    if (dt_table.length) {
-        var table = $('#summary-table').DataTable({
-            processing: true,
-            serverSide: true,
-            deferRender: true,
-            fixedHeader: true,
-            scrollX: true,
-            scrollCollapse: true,
-            ajax: {
-                url: ajaxUrl,
-                error: function (xhr) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Gagal Memuat Data',
-                        text: xhr.responseJSON?.message ?? 'Terjadi kesalahan saat mengambil data.',
-                        confirmButtonColor: '#696cff'
-                    });
-                }
-            },
-            columns: columns,
-            pageLength: 10,
-            order: [[1, 'desc']],
-            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
-            orderCellsTop: true,
-            initComplete: function () {
-                var api = this.api();
-
-                $('#search-tanggal_transfer').on('keyup change', function () {
-                    if (api.column(1).search() !== this.value) {
-                        api.column(1).search(this.value).draw();
-                    }
-                });
-                $('#search-dana_tersedia').on('keyup change', function () {
-                    if (api.column(2).search() !== this.value) {
-                        api.column(2).search(this.value).draw();
-                    }
-                });
-                $('#search-investasi_dikembalikan').on('keyup change', function () {
-                    if (api.column(3).search() !== this.value) {
-                        api.column(3).search(this.value).draw();
-                    }
-                });
-                $('#search-investasi_tambahan').on('keyup change', function () {
-                    if (api.column(4).search() !== this.value) {
-                        api.column(4).search(this.value).draw();
-                    }
-                });
-                $('#search-investasi_ditahan').on('keyup change', function () {
-                    if (api.column(5).search() !== this.value) {
-                        api.column(5).search(this.value).draw();
-                    }
-                });
-                $('#search-total_investasi_transfer').on('keyup change', function () {
-                    if (api.column(6).search() !== this.value) {
-                        api.column(6).search(this.value).draw();
-                    }
-                });
-                $('#search-total_transfer_investasi').on('keyup change', function () {
-                    if (api.column(7).search() !== this.value) {
-                        api.column(7).search(this.value).draw();
-                    }
-                });
-                $('#search-margin_diterima').on('keyup change', function () {
-                    if (api.column(8).search() !== this.value) {
-                        api.column(8).search(this.value).draw();
-                    }
-                });
-                $('#search-margin_tersedia').on('keyup change', function () {
-                    if (api.column(9).search() !== this.value) {
-                        api.column(9).search(this.value).draw();
-                    }
-                });
-                $('#search-margin_ditahan').on('keyup change', function () {
-                    if (api.column(10).search() !== this.value) {
-                        api.column(10).search(this.value).draw();
-                    }
-                });
-                $('#search-total_margin').on('keyup change', function () {
-                    if (api.column(11).search() !== this.value) {
-                        api.column(11).search(this.value).draw();
-                    }
-                });
-                $('#search-sisa_margin').on('keyup change', function () {
-                    if (api.column(12).search() !== this.value) {
-                        api.column(12).search(this.value).draw();
-                    }
-                });
-            }
-        });
-    }
-
-    $('#summary-table tbody').on('click', '.btn-delete-inv', function () {
-        var url = $(this).data('url');
-        var name = $(this).data('name') || 'record ini';
-        var $btn = $(this);
-
-        Swal.fire({
-            title: 'Hapus Investasi?',
-            html: 'Data <strong>' + name + '</strong> akan dihapus permanen.<br>Tindakan ini <u>tidak dapat dibatalkan</u>.',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ff3e1d',
-            cancelButtonColor: '#8592a3',
-            confirmButtonText: '<i class="ri-delete-bin-line me-1"></i>Ya, Hapus!',
-            cancelButtonText: 'Batal',
-            focusCancel: true,
-            customClass: {
-                confirmButton: 'btn btn-danger px-4',
-                cancelButton: 'btn btn-secondary px-4 ms-2'
-            },
-            buttonsStyling: false
-        }).then(function (result) {
-            if (!result.isConfirmed) return;
-            $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
-
-            $.ajax({
-                url: url,
-                type: 'DELETE',
-                success: function (res) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Terhapus!',
-                        text: res.message ?? 'Data berhasil dihapus.',
-                        timer: 1800,
-                        showConfirmButton: false,
-                        timerProgressBar: true
-                    });
-                    table.ajax.reload(null, false);
-                    updateCardStats(); // Re-animate after delete
-                },
-                error: function (xhr) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Gagal Menghapus!',
-                        text: xhr.responseJSON?.message ?? 'Terjadi kesalahan.',
-                        confirmButtonColor: '#696cff'
-                    });
-                    $btn.prop('disabled', false).html('<i class="ri-delete-bin-line"></i>');
-                }
-            });
-        });
-    });
-
-    // ── Delete Handler ─────────────────────────────────────────
-    $(document).on('click', '.btn-delete', function () {
-        const deleteUrl = $(this).data('url');
-
-        Swal.fire({
-            title: 'Hapus Investasi?',
-            text: `Apakah Anda yakin ingin menghapus investasi ini?`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#e6381a',
-            cancelButtonColor: '#6e7d88',
-            confirmButtonText: 'Ya, Hapus!',
-            cancelButtonText: 'Batal',
-            reverseButtons: true,
-            showLoaderOnConfirm: true,
-            preConfirm: () => {
-                return $.ajax({
-                    url: deleteUrl,
-                    type: 'DELETE',
-                    data: {
-                        _token: document.querySelector('meta[name="csrf-token"]').content
-                    }
-                }).catch(error => {
-                    Swal.showValidationMessage(
-                        `Request failed: ${error.responseJSON?.message ?? error.statusText}`
-                    );
-                });
-            },
-            allowOutsideClick: () => !Swal.isLoading()
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Dihapus!',
-                    text: 'Data Investasi berhasil dihapus.',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-                table.ajax.reload(null, false);
-                updateCardStats();
             }
         });
     });

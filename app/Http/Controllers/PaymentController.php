@@ -17,12 +17,13 @@ class PaymentController extends Controller
     {
         if ($request->ajax()) {
             // Join through invoice and delivery to reach po and customer
-            $data = Payment::query()
+            $query = Payment::query()
                 ->leftJoin('tbl_invoice', 'tbl_payment.invoice_id', '=', 'tbl_invoice.invoice_id')
                 ->leftJoin('tbl_delivery', 'tbl_invoice.delivery_id', '=', 'tbl_delivery.delivery_id')
                 ->leftJoin('tbl_po', 'tbl_delivery.po_id', '=', 'tbl_po.po_id')
                 ->select([
                     'tbl_payment.*',
+                    'tbl_payment.invoice_id as invoice_id',
                     'tbl_invoice.nomor_invoice',
                     'tbl_invoice.tgl_invoice',
                     'tbl_invoice.due_date',
@@ -33,809 +34,487 @@ class PaymentController extends Controller
                     'tbl_po.no_po',
                     'tbl_po.nama_barang',
                     'tbl_po.harga',
+                    'tbl_po.qty',
                 ]);
 
-            return DataTables::of($data)
+            return DataTables::of($query)
                 ->addIndexColumn()
-                ->addColumn('detail_pembayaran', function ($row) {
-                    $paymentDate      = \Carbon\Carbon::parse($row->payment_date_estimation);
-                    $dateFormatted    = $paymentDate->format('d M Y');
-                    $dateRelative     = $paymentDate->toIndonesianRelative();
-                    $amountFormatted  = 'Rp ' . number_format((float) $row->amount, 0, ',', '.');
-
-                    // ── Payment Method ────────────────────────────────────────
-                    $methodMap = match (strtolower($row->metode_bayar ?? '')) {
-                        'transfer' => ['label' => 'Transfer',  'icon' => 'ri-bank-line',          'color' => '#0ea5e9', 'bg' => '#e0f2fe'],
-                        'cash'     => ['label' => 'Cash',      'icon' => 'ri-money-dollar-box-line', 'color' => '#10b981', 'bg' => '#dcfce7'],
-                        'credit'   => ['label' => 'Credit',    'icon' => 'ri-bank-card-line',      'color' => '#f59e0b', 'bg' => '#fef3c7'],
-                        default    => [
-                            'label' => strtoupper($row->metode_bayar ?? 'Other'),
-                            'icon' => 'ri-exchange-line',
-                            'color' => '#9ca3af',
-                            'bg' => '#f1f5f9'
-                        ],
-                    };
-
-                    // ── Payment Status ────────────────────────────────────────
-                    $statusMap = match ((int) $row->payment_status) {
-                        1       => ['label' => 'Lunas',   'icon' => 'ri-checkbox-circle-fill', 'color' => '#10b981'],
-                        0       => ['label' => 'Belum Lunas', 'icon' => 'ri-time-line',        'color' => '#ef4444'],
-                        default => ['label' => 'Unknown', 'icon' => 'ri-question-line',        'color' => '#9ca3af'],
-                    };
-
-                    return '
-                        <style>
-                            .pay-card {
-                                display: flex;
-                                flex-direction: column;
-                                gap: 0;
-                                min-width: 240px;
-                                max-width: 280px;
-                                background: #ffffff;
-                                border: 1px solid #e5e7eb;
-                                border-radius: 12px;
-                                overflow: hidden;
-                                box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-                                font-family: inherit;
-                            }
-                            .pay-amount-hero {
-                                padding: 12px 14px 10px;
-                                background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-                                display: flex;
-                                align-items: center;
-                                gap: 10px;
-                            }
-                            .pay-amount-icon {
-                                width: 32px;
-                                height: 32px;
-                                background: rgba(255,255,255,0.12);
-                                border-radius: 8px;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                font-size: 1rem;
-                                color: #34d399;
-                                flex-shrink: 0;
-                            }
-                            .pay-amount-label {
-                                font-size: 0.58rem;
-                                font-weight: 600;
-                                text-transform: uppercase;
-                                letter-spacing: 0.07em;
-                                color: #94a3b8;
-                            }
-                            .pay-amount-value {
-                                font-size: 1rem;
-                                font-weight: 800;
-                                color: #34d399;
-                                letter-spacing: 0.01em;
-                                line-height: 1.2;
-                            }
-                            .pay-card-body {
-                                padding: 10px 14px;
-                                display: flex;
-                                flex-direction: column;
-                                gap: 8px;
-                            }
-                            .pay-row {
-                                display: flex;
-                                align-items: flex-start;
-                                gap: 8px;
-                            }
-                            .pay-row-icon {
-                                width: 22px;
-                                height: 22px;
-                                border-radius: 6px;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                font-size: 0.75rem;
-                                flex-shrink: 0;
-                                margin-top: 1px;
-                            }
-                            .pay-row-content {
-                                display: flex;
-                                flex-direction: column;
-                                gap: 1px;
-                            }
-                            .pay-row-label {
-                                font-size: 0.6rem;
-                                font-weight: 600;
-                                text-transform: uppercase;
-                                letter-spacing: 0.06em;
-                                color: #94a3b8;
-                            }
-                            .pay-row-value {
-                                font-size: 0.82rem;
-                                font-weight: 600;
-                                color: #1e293b;
-                                line-height: 1.3;
-                            }
-                            .pay-divider {
-                                height: 1px;
-                                background: #f1f5f9;
-                                margin: 0 -14px;
-                            }
-                            .pay-relative-badge {
-                                display: inline-block;
-                                font-size: 0.62rem;
-                                font-weight: 600;
-                                padding: 1px 7px;
-                                border-radius: 20px;
-                                background: #e0f2fe;
-                                color: #0369a1;
-                                margin-top: 2px;
-                            }
-                            .pay-ref-grid {
-                                display: grid;
-                                grid-template-columns: 1fr 1fr;
-                                gap: 6px;
-                            }
-                            .pay-ref-cell {
-                                display: flex;
-                                flex-direction: column;
-                                gap: 1px;
-                                padding: 5px 7px;
-                                background: #f8fafc;
-                                border-radius: 7px;
-                                border: 1px solid #f1f5f9;
-                            }
-                            .pay-method-footer {
-                                padding: 8px 14px 10px;
-                                border-top: 1.5px solid;
-                            }
-                            .pay-method-chip {
-                                display: inline-flex;
-                                align-items: center;
-                                gap: 5px;
-                                padding: 4px 12px 4px 8px;
-                                border-radius: 20px;
-                                font-size: 0.75rem;
-                                font-weight: 700;
-                                border: 1.5px solid;
-                            }
-                            .pay-date-chip {
-                                display: inline-flex;
-                                align-items: center;
-                                gap: 4px;
-                                font-size: 0.65rem;
-                                font-weight: 600;
-                                color: #64748b;
-                            }
-                        </style>
-                        <div class="pay-card shadow-lg">
-
-                            <!-- Hero: Total Pembayaran (dark header so the green amount POPS) -->
-                            <div class="pay-amount-hero">
-                                <div class="pay-amount-icon">
-                                    <i class="ri-money-dollar-circle-line"></i>
-                                </div>
-                                <div class="d-flex flex-column gap-0">
-                                    <span class="pay-amount-label">Total Pembayaran</span>
-                                    <span class="pay-amount-value">' . $amountFormatted . '</span>
-                                </div>
-                            </div>
-
-                            <!-- Body -->
-                            <div class="pay-card-body">
-
-                                <!-- Tanggal Pembayaran -->
-                                <div class="pay-row">
-                                    <div class="pay-row-icon" style="background:#dcfce7;color:#16a34a;">
-                                        <i class="ri-calendar-check-line"></i>
-                                    </div>
-                                    <div class="pay-row-content">
-                                        <span class="pay-row-label">Tanggal Pembayaran</span>
-                                        <span class="pay-row-value">' . $dateFormatted . '</span>
-                                        <span class="pay-relative-badge">' . $dateRelative . '</span>
-                                    </div>
-                                </div>
-
-                                <div class="pay-divider"></div>
-
-                                <!-- Nama Barang + Qty side by side -->
-                                <div class="pay-row">
-                                    <div class="pay-row-icon" style="background:#ede9fe;color:#7c3aed;">
-                                        <i class="ri-box-3-line"></i>
-                                    </div>
-                                    <div class="pay-row-content" style="flex:1;">
-                                        <span class="pay-row-label">Nama Barang</span>
-                                        <span class="pay-row-value">' . e($row->nama_barang) . '</span>
-                                        <span style="font-size:0.72rem;font-weight:600;color:#7c3aed;margin-top:2px;">
-                                            <i class="ri-stack-line me-1"></i>' . number_format((int) $row->qty_delivered, 0, ',', '.') . ' Unit
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div class="pay-divider"></div>
-
-                                <!-- Reference Numbers Grid: PO / Delivery / Invoice -->
-                                <div class="pay-ref-grid">
-                                    <div class="pay-ref-cell">
-                                        <span class="pay-row-label">No. PO</span>
-                                        <span style="font-size:0.76rem;font-weight:700;color:#1e293b;">' . e($row->no_po) . '</span>
-                                    </div>
-                                    <div class="pay-ref-cell">
-                                        <span class="pay-row-label">No. Delivery</span>
-                                        <span style="font-size:0.76rem;font-weight:700;color:#1e293b;">' . e($row->delivery_no) . '</span>
-                                    </div>
-                                    <div class="pay-ref-cell" style="grid-column:1/-1;">
-                                        <span class="pay-row-label">No. Invoice</span>
-                                        <span style="font-size:0.76rem;font-weight:700;color:#1e293b;">' . e($row->nomor_invoice) . '</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Footer: Payment Method -->
-                            <div class="pay-method-footer" style="
-                                background:' . $methodMap['bg'] . ';
-                                border-color:' . $methodMap['color'] . '30;
-                                display:flex;
-                                flex-direction:column;
-                                gap:6px;
-                                align-items:flex-start;
-                            ">
-                                <!-- Method + Status side by side -->
-                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                                    <span class="pay-method-chip" style="background:' . $methodMap['color'] . '18;color:' . $methodMap['color'] . ';border-color:' . $methodMap['color'] . '40;">
-                                        <i class="' . $methodMap['icon'] . '" style="font-size:0.85rem;"></i>
-                                        ' . $methodMap['label'] . '
-                                    </span>
-
-                                    <span class="pay-status-chip" style="
-                                        display:inline-flex;
-                                        align-items:center;
-                                        gap:4px;
-                                        padding:4px 10px 4px 7px;
-                                        border-radius:20px;
-                                        font-size:0.72rem;
-                                        font-weight:700;
-                                        border:1.5px solid;
-                                        background:' . $statusMap['color'] . '18;
-                                        color:' . $statusMap['color'] . ';
-                                        border-color:' . $statusMap['color'] . '40;
-                                    ">
-                                        <i class="' . $statusMap['icon'] . '" style="font-size:0.8rem;"></i>
-                                        ' . $statusMap['label'] . '
-                                    </span>
-                                </div>
-
-                                <!-- Date at the very bottom -->
-                                <span class="pay-date-chip">
-                                    <i class="ri-calendar-line"></i>' . $dateFormatted . '
-                                </span>
-                            </div>
-                        </div>
-                        ';
-                })
-                ->addColumn('payment_date_estimation', function ($row) {
-                    // ── No Estimation Date ────────────────────────────────────
-                    if (!$row->payment_date_estimation) {
-                        return '
-                            <style>
-                                .pmt-card {
-                                    display: inline-flex;
-                                    flex-direction: column;
-                                    gap: 0;
-                                    min-width: 200px;
-                                    background: #ffffff;
-                                    border: 1px solid #e5e7eb;
-                                    border-radius: 12px;
-                                    overflow: hidden;
-                                    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-                                    font-family: inherit;
-                                }
-                                .pmt-card-body {
-                                    padding: 10px 14px;
-                                    display: flex;
-                                    align-items: center;
-                                    gap: 10px;
-                                }
-                                .pmt-icon-wrap {
-                                    width: 32px;
-                                    height: 32px;
-                                    border-radius: 8px;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    font-size: 1rem;
-                                    flex-shrink: 0;
-                                }
-                                .pmt-row-label {
-                                    font-size: 0.6rem;
-                                    font-weight: 600;
-                                    text-transform: uppercase;
-                                    letter-spacing: 0.06em;
-                                    color: #94a3b8;
-                                }
-                                .pmt-row-value {
-                                    font-size: 0.82rem;
-                                    font-weight: 700;
-                                    color: #1e293b;
-                                    line-height: 1.3;
-                                }
-                                .pmt-footer {
-                                    padding: 5px 14px 8px;
-                                    border-top: 1.5px solid;
-                                }
-                                .pmt-chip {
-                                    display: inline-flex;
-                                    align-items: center;
-                                    gap: 5px;
-                                    padding: 3px 10px 3px 7px;
-                                    border-radius: 20px;
-                                    font-size: 0.72rem;
-                                    font-weight: 700;
-                                    border: 1.5px solid;
-                                }
-                            </style>
-                            <div class="pmt-card shadow-lg">
-                                <div class="pmt-card-body">
-                                    <div class="pmt-icon-wrap" style="background:#f1f5f9;color:#94a3b8;">
-                                        <i class="ri-calendar-2-line"></i>
-                                    </div>
-                                    <div class="d-flex flex-column gap-0">
-                                        <span class="pmt-row-label">Estimasi Pembayaran</span>
-                                        <span class="pmt-row-value" style="color:#94a3b8;">Tidak Ditentukan</span>
-                                    </div>
-                                </div>
-                                <div class="pmt-footer" style="background:#f9fafb;border-color:#e5e7eb;">
-                                    <span class="pmt-chip" style="background:#9ca3af18;color:#9ca3af;border-color:#9ca3af40;">
-                                        <i class="ri-minus-circle-line" style="font-size:0.8rem;"></i>
-                                        Tidak Ada Estimasi
-                                    </span>
-                                </div>
-                            </div>';
-                    }
-
-                    if ((int) $row->payment_status === 1) {
-                        $paidDate = $row->payment_date_estimation
-                            ? \Carbon\Carbon::parse($row->payment_date_estimation)->format('d M Y')
-                            : null;
-
-                        return '
-                        <div class="pmt-card shadow-lg">
-
-                            <!-- Header -->
-                            <div style="padding:10px 14px 8px;background:linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%);border-bottom:1px solid #bbf7d0;display:flex;align-items:center;gap:8px;">
-                                <div style="width:28px;height:28px;background:#bbf7d0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:#16a34a;flex-shrink:0;">
-                                    <i class="ri-checkbox-circle-fill"></i>
-                                </div>
-                                <div>
-                                    <div style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;">Status Pembayaran</div>
-                                    <div style="font-size:0.78rem;font-weight:700;color:#14532d;">Lunas</div>
-                                </div>
-                            </div>
-
-                            <!-- Body -->
-                            <div style="padding:10px 14px;display:flex;flex-direction:column;gap:2px;">
-                                <span style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;">Tanggal Bayar</span>
-                                <span style="font-size:0.95rem;font-weight:800;color:#16a34a;letter-spacing:0.03em;">
-                                    ' . ($paidDate ?? '—') . '
-                                </span>
-                                <span style="
-                                    display: inline-block;
-                                    font-size: 0.62rem;
-                                    font-weight: 600;
-                                    padding: 1px 7px;
-                                    border-radius: 20px;
-                                    background: #e0f2fe;
-                                    color: #0369a1;
-                                    margin-top: 2px;
-                                    width:max-content;
-                                ">
-                                    ' . \Carbon\Carbon::parse($row->payment_date_estimation)->toIndonesianRelative() . '
-                                </span>
-                            </div>
-
-                            <!-- Footer -->
-                            <div style="padding:5px 14px 8px;background:#f0fdf4;border-top:1.5px solid #bbf7d0;">
-                                <span class="pmt-chip" style="background:#10b98118;color:#10b981;border-color:#10b98140;">
-                                    <i class="ri-check-double-line" style="font-size:0.8rem;"></i>
-                                    Sudah Dibayar
-                                </span>
-                            </div>
-
-                        </div>';
-                    }
-
-                    $estDate      = \Carbon\Carbon::parse($row->payment_date_estimation);
-                    $isOverdue    = $estDate->lte(now());
-                    $isDueToday   = $estDate->isToday();
-                    $isoTarget    = $estDate->toISOString();
-                    $dateFormatted = $estDate->format('d M Y');
-                    $dateRelative  = $estDate->toIndonesianRelative();
-
-                    // ── STATE: OVERDUE ────────────────────────────────────────
-                    if ($isOverdue && !$isDueToday) {
-                        return '
-                            <div class="pmt-card shadow-lg">
-
-                                <!-- Header -->
-                                <div style="padding:10px 14px 8px;background:linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%);border-bottom:1px solid #fecaca;display:flex;align-items:center;gap:8px;">
-                                    <div style="width:28px;height:28px;background:#fee2e2;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:#ef4444;flex-shrink:0;">
-                                        <i class="ri-alarm-warning-line"></i>
-                                    </div>
-                                    <div>
-                                        <div style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;">Estimasi Pembayaran</div>
-                                        <div style="font-size:0.78rem;font-weight:700;color:#7f1d1d;">' . $dateFormatted . '</div>
-                                    </div>
-                                </div>
-
-                                <!-- Body -->
-                                <div style="padding:10px 14px;display:flex;flex-direction:column;gap:2px;">
-                                    <span style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;">Telah Lewat</span>
-                                    <span style="font-size:0.95rem;font-weight:800;color:#ef4444;letter-spacing:0.03em;">
-                                        ' . $dateRelative . '
-                                    </span>
-                                </div>
-
-                                <!-- Footer -->
-                                <div style="padding:5px 14px 8px;background:#fef2f2;border-top:1.5px solid #fecaca;display:flex;flex-direction:column;align-items:flex-start;gap:6px;">
-                                    <span class="pmt-chip" style="background:#ef444418;color:#ef4444;border-color:#ef444440;">
-                                        <i class="ri-error-warning-line" style="font-size:0.8rem;"></i>
-                                        Lewat Estimasi
-                                    </span>
-                                    <span style="font-size:0.65rem;font-weight:600;color:#94a3b8;">
-                                        <i class="ri-calendar-line me-1"></i>' . $dateFormatted . '
-                                    </span>
-                                    <button
-                                        class="btn-pay-now pay-now-btn bayar-sekarang-btn"
-                                        data-id="' . $row->payment_id . '"
-                                        data-url="' . route('payments.payNow', $row->payment_id) . '"
-                                        data-token="' . csrf_token() . '">
-                                        <i class="ri-money-dollar-circle-line text-success"></i>
-                                        Bayar Sekarang
-                                    </button>
-                                </div>
-                            </div>';
-                    }
-
-                    // ── STATE: DUE TODAY ──────────────────────────────────────
-                    if ($isDueToday) {
-                        return '
-                            <div class="pmt-card shadow-lg">
-
-                                <!-- Header -->
-                                <div style="padding:10px 14px 8px;background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);border-bottom:1px solid #fde68a;display:flex;align-items:center;gap:8px;">
-                                    <div style="width:28px;height:28px;background:#fde68a;border-radius:8px;display:flex;align-items:center;justify-content:justify-content:center;font-size:0.85rem;color:#d97706;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-                                        <i class="ri-timer-flash-line"></i>
-                                    </div>
-                                    <div>
-                                        <div style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;">Estimasi Pembayaran</div>
-                                        <div style="font-size:0.78rem;font-weight:700;color:#78350f;">' . $dateFormatted . '</div>
-                                    </div>
-                                </div>
-
-                                <!-- Countdown Body -->
-                                <div style="padding:10px 14px;display:flex;flex-direction:column;gap:2px;" class="timer-wrapper" data-target="' . $isoTarget . '" data-id="' . $row->payment_id . '">
-                                    <span style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;">Sisa Waktu Hari Ini</span>
-                                    <span class="countdown-display payment-timer" style="font-size:0.95rem;font-weight:800;color:#d97706;letter-spacing:0.03em;font-variant-numeric:tabular-nums;">
-                                        Calculating...
-                                    </span>
-                                </div>
-
-                                <!-- Footer -->
-                                <div style="padding:5px 14px 8px;background:#fffbeb;border-top:1.5px solid #fde68a;">
-                                    <span class="pmt-chip" style="background:#f59e0b18;color:#d97706;border-color:#f59e0b40;">
-                                        <i class="ri-alarm-line" style="font-size:0.8rem;"></i>
-                                        Jatuh Tempo Hari Ini!
-                                    </span>
-                                    <button
-                                        class="btn-pay-now pay-now-btn bayar-sekarang-btn"
-                                        data-id="' . $row->payment_id . '"
-                                        data-url="' . route('payments.payNow', $row->payment_id) . '"
-                                        data-token="' . csrf_token() . '"                                        
-                                    >
-                                        <i class="ri-money-dollar-circle-line text-success"></i>
-                                        Bayar Sekarang
-                                    </button>
-                                </div>
-
-                            </div>';
-                    }
-
-                    // ── STATE: FUTURE COUNTDOWN ───────────────────────────────
-                    return '
-                        <div class="shadow-lg pmt-card timer-wrapper" data-target="' . $isoTarget . '" data-id="' . $row->payment_id . '">
-
-                            <!-- Header -->
-                            <div style="padding:10px 14px 8px;background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;">
-                                <div style="width:28px;height:28px;background:#e0f2fe;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:#0284c7;flex-shrink:0;">
-                                    <i class="ri-calendar-schedule-line"></i>
-                                </div>
-                                <div>
-                                    <div style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;">Estimasi Pembayaran</div>
-                                    <div style="font-size:0.78rem;font-weight:700;color:#1e293b;">' . $dateFormatted . '</div>
-                                </div>
-                            </div>
-
-                            <!-- Countdown Body -->
-                            <div style="padding:10px 14px;display:flex;flex-direction:column;gap:2px;">
-                                <span style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;">Sisa Waktu</span>
-                                <span class="countdown-display payment-timer" style="font-size:0.95rem;font-weight:800;color:#0284c7;letter-spacing:0.03em;font-variant-numeric:tabular-nums;">
-                                    Calculating...
-                                </span>
-                            </div>
-
-                            <!-- Footer -->
-                            <div style="padding:5px 14px 8px;background:#f8fafc;border-top:1.5px solid #e5e7eb;">
-                                <span class="pmt-chip" style="background:#3b82f618;color:#3b82f6;border-color:#3b82f640;">
-                                    <i class="ri-hourglass-line" style="font-size:0.8rem;"></i>
-                                    Menunggu Pembayaran
-                                </span>
-                                    <button
-                                        class="btn-pay-now pay-now-btn bayar-sekarang-btn"
-                                        data-id="' . $row->payment_id . '"
-                                        data-url="' . route('payments.payNow', $row->payment_id) . '"
-                                        data-token="' . csrf_token() . '"                                        
-                                    >
-                                        <i class="ri-money-dollar-circle-line text-success"></i>
-                                        Bayar Sekarang
-                                    </button>
-                            </div>
-
-                        </div>';
-                })
                 ->addColumn('action', function ($row) {
-                    // Helper to prevent crash if route is missing (optional safety)
-                    $showUrl = Route::has('payment.show') ? route('payment.show', $row->payment_id) : '#';
-                    $editUrl = Route::has('payment.edit') ? route('payment.edit', $row->payment_id) : '#';
+                    $showUrl   = Route::has('invoice.show')    ? route('invoice.show',    $row->invoice->invoice_id) : '#';
+                    $editUrl   = Route::has('payment.edit')    ? route('payment.edit',    $row->payment_id) : '#';
                     $deleteUrl = Route::has('payment.destroy') ? route('payment.destroy', $row->payment_id) : '#';
 
-                    $user = Auth::user();
+                    $user          = Auth::user();
                     $canEditDelete = $user && $user->role_id !== 2;
 
-                    $editBtn = $canEditDelete ? '
-                    <a href="' . $editUrl . '" class="btn btn-sm btn-icon btn-label-warning" title="Edit">
-                        <i class="ri-pencil-line"></i>
-                    </a>' : '';
+                    $noPo       = $row->no_po;
+                    $namaBarang = $row->nama_barang;
 
-                    $deleteBtn = $canEditDelete ? '
-                    <button type="button" class="btn btn-sm btn-icon btn-label-danger btn-delete-ajax" 
-                        data-url="' . $deleteUrl . '" 
-                        data-po="No po ' . $row->no_po . ' Nama Barang ' . $row->nama_barang . '" 
-                        title="Delete">
-                        <i class="ri-delete-bin-line"></i>
-                    </button>' : '';
+                    $editItem = $canEditDelete ? <<<HTML
+                        <li>
+                            <a href="{$editUrl}" class="dropdown-item text-warning">
+                                <i class="ri-pencil-line me-2"></i>Edit
+                            </a>
+                        </li>
+                    HTML : '';
 
-                    return '
-                    <div class="d-flex align-items-center gap-2">
-                        <a href="' . $showUrl . '" class="btn btn-sm btn-icon btn-label-info" title="Details">
-                            <i class="ri-eye-line"></i>
-                        </a>
-                        ' . $editBtn . '
-                        ' . $deleteBtn . '
+                    $deleteItem = $canEditDelete ? <<<HTML
+                        <li>
+                            <button type="button"
+                                class="dropdown-item text-danger btn-delete-ajax"
+                                data-url="{$deleteUrl}"
+                                data-po="No po {$noPo} Nama Barang {$namaBarang}">
+                                <i class="ri-delete-bin-line me-2"></i>Delete
+                            </button>
+                        </li>
+                    HTML : '';
+
+                    return <<<HTML
+                    <div class="dropdown">
+                        <button type="button"
+                            class="btn btn-sm btn-icon btn-label-secondary"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                            <i class="ri-more-2-line"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                            <li>
+                                <a href="{$showUrl}" class="dropdown-item text-info">
+                                    <i class="ri-eye-line me-2"></i>Details
+                                </a>
+                            </li>
+                            {$editItem}
+                            {$deleteItem}
+                        </ul>
                     </div>
-                    ';
+                    HTML;
                 })
-                ->orderColumn('detail_pembayaran', 'tbl_payment.payment_date $1')
-                ->filterColumn('detail_pembayaran', function ($data, $keyword) {
-                    $keyword_lower = strtolower(trim($keyword));
-                    $numericClean  = preg_replace('/[^0-9]/', '', $keyword);
-                    $hasUnit       = str_contains($keyword_lower, 'unit');
-
-                    // ── Payment Status — belum lunas BEFORE lunas to avoid substring collision
-                    if (
-                        str_contains($keyword_lower, 'belum lunas')     ||
-                        str_contains($keyword_lower, 'belum dibayar')   ||
-                        str_contains($keyword_lower, 'belum bayar')     ||
-                        str_contains($keyword_lower, 'unpaid')          ||
-                        str_contains($keyword_lower, 'outstanding')     ||
-                        str_contains($keyword_lower, 'pending')         ||
-                        str_contains($keyword_lower, 'tidak terbayar')  ||
-                        str_contains($keyword_lower, 'belum terbayar')
-                    ) {
-                        $data->where('tbl_payment.payment_status', 0);
-                        return;
-                    }
-
-                    if (
-                        str_contains($keyword_lower, 'lunas')           ||
-                        str_contains($keyword_lower, 'paid')            ||
-                        str_contains($keyword_lower, 'sudah dibayar')   ||
-                        str_contains($keyword_lower, 'sudah bayar')     ||
-                        str_contains($keyword_lower, 'telah dibayar')   ||
-                        str_contains($keyword_lower, 'terbayar')        ||
-                        str_contains($keyword_lower, 'settled')         ||
-                        str_contains($keyword_lower, 'selesai')         ||
-                        str_contains($keyword_lower, 'done')
-                    ) {
-                        $data->where('tbl_payment.payment_status', 1);
-                        return;
-                    }
-
-                    // ── Metode Bayar
-                    if (
-                        str_contains($keyword_lower, 'transfer')        ||
-                        str_contains($keyword_lower, 'bank transfer')   ||
-                        str_contains($keyword_lower, 'tf')
-                    ) {
-                        $data->whereRaw("LOWER(tbl_payment.metode_bayar) like ?", ['%transfer%']);
-                        return;
-                    }
-
-                    if (
-                        str_contains($keyword_lower, 'cash')            ||
-                        str_contains($keyword_lower, 'tunai')           ||
-                        str_contains($keyword_lower, 'bayar tunai')
-                    ) {
-                        $data->whereRaw("LOWER(tbl_payment.metode_bayar) like ?", ['%cash%']);
-                        return;
-                    }
-
-                    if (
-                        str_contains($keyword_lower, 'credit')          ||
-                        str_contains($keyword_lower, 'kredit')          ||
-                        str_contains($keyword_lower, 'kartu kredit')    ||
-                        str_contains($keyword_lower, 'cicilan')
-                    ) {
-                        $data->whereRaw("LOWER(tbl_payment.metode_bayar) like ?", ['%credit%']);
-                        return;
-                    }
-
-                    if (
-                        str_contains($keyword_lower, 'debit')           ||
-                        str_contains($keyword_lower, 'kartu debit')
-                    ) {
-                        $data->whereRaw("LOWER(tbl_payment.metode_bayar) like ?", ['%debit%']);
-                        return;
-                    }
-
-                    // ── "50 Unit" → ONLY search qty_delivered, stop here
-                    if ($hasUnit && !empty($numericClean)) {
-                        $data->where(function ($q) use ($numericClean, $keyword) {
-                            $q->whereRaw("CAST(tbl_delivery.qty_delivered AS CHAR) = ?", [$numericClean])
-                                ->orWhereRaw("CONCAT(tbl_delivery.qty_delivered, ' Unit') like ?", ["%{$keyword}%"]);
-                        });
-                        return;
-                    }
-
-                    $data->where(function ($q) use ($keyword, $numericClean) {
-
-                        // ── Payment Date
-                        $q->whereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%d %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%e %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%d %M %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%e %M %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%Y-%m-%d') like ?", ["%{$keyword}%"])
-
-                            // ── Nomor Invoice
-                            ->orWhere('tbl_invoice.nomor_invoice', 'like', "%{$keyword}%")
-
-                            // ── Delivery No
-                            ->orWhere('tbl_delivery.delivery_no', 'like', "%{$keyword}%")
-
-                            // ── PO columns
-                            ->orWhere('tbl_po.no_po', 'like', "%{$keyword}%")
-                            ->orWhere('tbl_po.nama_barang', 'like', "%{$keyword}%");
-
-                        // ✅ ONLY add numeric searches when numericClean is not empty
-                        if (!empty($numericClean)) {
-                            $q->orWhereRaw("CAST(tbl_payment.amount AS CHAR) like ?", ["%{$numericClean}%"])
-                                ->orWhereRaw("CAST(tbl_delivery.qty_delivered AS CHAR) like ?", ["%{$numericClean}%"]);
-                        }
-                    });
+                ->addColumn('no_po', fn($row) => $row->invoice->delivery->po->no_po ?? '-')
+                ->orderColumn('no_po', 'tbl_po.no_po $1')
+                ->filterColumn('no_po', function ($query, $keyword) {
+                    $query->where('tbl_po.no_po', 'like', "%{$keyword}%");
                 })
-                ->orderColumn('payment_date_estimation', 'tbl_payment.payment_status $1, tbl_payment.payment_date_estimation DESC')
-                ->filterColumn('payment_date_estimation', function ($data, $keyword) {
-                    $keyword_lower = strtolower(trim($keyword));
+                ->addColumn('nama_barang', fn($row) => $row->invoice->delivery->po->nama_barang ?? '-')
+                ->orderColumn('nama_barang', 'tbl_po.nama_barang $1')
+                ->filterColumn('nama_barang', function ($query, $keyword) {
+                    $query->where('tbl_po.nama_barang', 'like', "%{$keyword}%");
+                })
+                ->addColumn('nomor_invoice', fn($row) => $row->invoice->nomor_invoice ?? '-')
+                ->orderColumn('nomor_invoice', 'tbl_invoice.nomor_invoice $1')
+                ->filterColumn('nomor_invoice', function ($query, $keyword) {
+                    $query->where('tbl_invoice.nomor_invoice', 'like', "%{$keyword}%");
+                })
+                ->addColumn('status_invoice', function ($row) {
+                    $map = [
+                        0 => ['label' => 'Unpaid', 'icon' => 'ri-time-line',            'color' => '#64748b', 'bg' => '#f1f5f9'],
+                        1 => ['label' => 'Paid',   'icon' => 'ri-checkbox-circle-line', 'color' => '#16a34a', 'bg' => '#f0fdf4'],
+                    ];
 
-                    // ── Belum Lunas BEFORE lunas to avoid substring collision
-                    if (
-                        str_contains($keyword_lower, 'belum lunas')         ||
-                        str_contains($keyword_lower, 'menunggu pembayaran') ||
-                        str_contains($keyword_lower, 'belum dibayar')       ||
-                        str_contains($keyword_lower, 'belum bayar')         ||
-                        str_contains($keyword_lower, 'belum terbayar')      ||
-                        str_contains($keyword_lower, 'tidak terbayar')      ||
-                        str_contains($keyword_lower, 'unpaid')              ||
-                        str_contains($keyword_lower, 'outstanding')         ||
-                        str_contains($keyword_lower, 'pending')             ||
-                        str_contains($keyword_lower, 'menunggu')
-                    ) {
-                        $data->where('tbl_payment.payment_status', 0);
-                        return;
+                    $invoice   = $row->invoice;
+                    $s         = $map[(int) $invoice->status_invoice] ?? $map[0];
+                    $label     = $s['label'];
+                    $icon      = $s['icon'];
+                    $color     = $s['color'];
+                    $bg        = $s['bg'];
+                    $invoiceId = $invoice->invoice_id;
+                    $nomorInv  = $invoice->nomor_invoice ?? '-';
+                    $csrfToken = csrf_token();
+                    $payUrl    = route('payments.payNow', $row->payment_id);
+
+                    $chip = <<<HTML
+    <span style="display:inline-flex;align-items:center;gap:5px;
+                background:{$bg};color:{$color};
+                border:1px solid {$color}30;border-radius:999px;
+                padding:4px 12px;font-size:0.75rem;font-weight:700;
+                letter-spacing:0.03em;white-space:nowrap;">
+        <i class="{$icon}" style="font-size:0.85rem;"></i>
+        {$label}
+    </span>
+    HTML;
+
+                    if ((int) $invoice->status_invoice === 1) {
+                        return <<<HTML
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start;">
+            {$chip}
+        </div>
+        HTML;
                     }
 
-                    // ── Lunas / Sudah Dibayar
-                    if (
-                        str_contains($keyword_lower, 'lunas')           ||
-                        str_contains($keyword_lower, 'sudah dibayar')   ||
-                        str_contains($keyword_lower, 'sudah bayar')     ||
-                        str_contains($keyword_lower, 'telah dibayar')   ||
-                        str_contains($keyword_lower, 'telah bayar')     ||
-                        str_contains($keyword_lower, 'terbayar')        ||
-                        str_contains($keyword_lower, 'paid')            ||
-                        str_contains($keyword_lower, 'settled')         ||
-                        str_contains($keyword_lower, 'selesai')         ||
-                        str_contains($keyword_lower, 'done')
-                    ) {
-                        $data->where('tbl_payment.payment_status', 1);
-                        return;
+                    return <<<HTML
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
+        {$chip}
+        <button class="btn-pay-now"
+            data-id="{$invoiceId}"
+            data-url="{$payUrl}"
+            data-token="{$csrfToken}"
+            data-nomor="{$nomorInv}"
+            style="display:inline-flex;align-items:center;gap:5px;
+                background:linear-gradient(135deg,#16a34a,#15803d);
+                color:#fff;border:none;border-radius:8px;
+                padding:5px 12px;font-size:0.76rem;font-weight:700;
+                cursor:pointer;white-space:nowrap;
+                box-shadow:0 2px 8px #16a34a40;
+                transition:opacity 0.2s ease;"
+            onmouseover="this.style.opacity='0.85'"
+            onmouseout="this.style.opacity='1'">
+            <i class="ri-secure-payment-line" style="font-size:0.85rem;"></i>
+            Bayar Sekarang
+        </button>
+    </div>
+    HTML;
+                })
+                ->orderColumn('status_invoice', 'tbl_invoice.status_invoice $1')
+                ->filterColumn('status_invoice', function ($query, $keyword) {
+                    $map = [
+                        'unpaid' => 0,
+                        'paid'   => 1,
+                    ];
+                    $kw = strtolower(trim($keyword));
+
+                    if (array_key_exists($kw, $map)) {
+                        $query->where('tbl_invoice.status_invoice', $map[$kw]);
+                    } elseif (is_numeric($kw)) {
+                        $query->where('tbl_invoice.status_invoice', (int) $kw);
+                    } else {
+                        $query->where('tbl_invoice.status_invoice', 'like', "%{$keyword}%");
+                    }
+                })
+                ->addColumn('payment_date', function ($row) {
+                    if (!$row->payment_date) {
+                        return <<<HTML
+        <span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+            <i class="ri-minus-line me-1"></i>Tidak ada
+        </span>
+        HTML;
                     }
 
-                    // ── Tidak Ada Estimasi
-                    if (
-                        str_contains($keyword_lower, 'tidak ada estimasi') ||
-                        str_contains($keyword_lower, 'tidak ditentukan')   ||
-                        str_contains($keyword_lower, 'tanpa estimasi')     ||
-                        str_contains($keyword_lower, 'belum ditentukan')   ||
-                        str_contains($keyword_lower, 'no estimation')      ||
-                        str_contains($keyword_lower, 'tanpa batas waktu')
-                    ) {
-                        $data->whereNull('tbl_payment.payment_date_estimation');
-                        return;
-                    }
+                    $date    = \Carbon\Carbon::parse($row->payment_date);
+                    $dateStr = $date->translatedFormat('d M Y');
 
-                    // ── Lewat Estimasi / Overdue — before jatuh tempo to avoid collision
-                    if (
-                        str_contains($keyword_lower, 'lewat estimasi')  ||
-                        str_contains($keyword_lower, 'telah lewat')     ||
-                        str_contains($keyword_lower, 'sudah lewat')     ||
-                        str_contains($keyword_lower, 'overdue')         ||
-                        str_contains($keyword_lower, 'terlambat')       ||
-                        str_contains($keyword_lower, 'telat')           ||
-                        str_contains($keyword_lower, 'past due')        ||
-                        str_contains($keyword_lower, 'melewati batas')
-                    ) {
-                        $data->where('tbl_payment.payment_status', 0)
-                            ->whereNotNull('tbl_payment.payment_date_estimation')
-                            ->whereRaw("DATE(tbl_payment.payment_date_estimation) < CURDATE()");
-                        return;
-                    }
-
-                    // ── Jatuh Tempo Hari Ini
-                    if (
-                        str_contains($keyword_lower, 'jatuh tempo hari ini') ||
-                        str_contains($keyword_lower, 'jatuh tempo')          ||
-                        str_contains($keyword_lower, 'hari ini')             ||
-                        str_contains($keyword_lower, 'due today')            ||
-                        str_contains($keyword_lower, 'today')
-                    ) {
-                        $data->where('tbl_payment.payment_status', 0)
-                            ->whereRaw("DATE(tbl_payment.payment_date_estimation) = CURDATE()");
-                        return;
-                    }
-
-                    // ── Sisa Waktu / Belum Jatuh Tempo
-                    if (
-                        str_contains($keyword_lower, 'sisa waktu')          ||
-                        str_contains($keyword_lower, 'belum jatuh tempo')   ||
-                        str_contains($keyword_lower, 'masih berlaku')       ||
-                        str_contains($keyword_lower, 'masih ada waktu')     ||
-                        str_contains($keyword_lower, 'on time')             ||
-                        str_contains($keyword_lower, 'dalam batas')         ||
-                        str_contains($keyword_lower, 'tepat waktu')
-                    ) {
-                        $data->where('tbl_payment.payment_status', 0)
-                            ->whereNotNull('tbl_payment.payment_date_estimation')
-                            ->whereRaw("DATE(tbl_payment.payment_date_estimation) > CURDATE()");
-                        return;
-                    }
-
-                    // ── Date fallback — "02 Feb 2026", "2 February 2026", "2026-02-02"
-                    $parsedDate = null;
+                    return <<<HTML
+    <span style="display:inline-flex;align-items:center;gap:5px;
+                font-size:0.78rem;font-weight:600;color:#1e293b;
+                white-space:nowrap;">
+        <i class="ri-calendar-check-line" style="color:#0284c7;font-size:0.85rem;"></i>
+        {$dateStr}
+    </span>
+    HTML;
+                })
+                ->orderColumn('payment_date', 'tbl_payment.payment_date $1')
+                ->filterColumn('payment_date', function ($query, $keyword) {
                     try {
-                        $parsedDate = \Carbon\Carbon::parse($keyword)->format('Y-m-d');
+                        $date = \Carbon\Carbon::createFromFormat('d M Y', trim($keyword));
+                        $query->whereDate('tbl_payment.payment_date', $date->toDateString());
                     } catch (\Exception $e) {
-                        $parsedDate = null;
+                        try {
+                            $date = \Carbon\Carbon::parse($keyword);
+                            $query->whereDate('tbl_payment.payment_date', $date->toDateString());
+                        } catch (\Exception $e2) {
+                            $query->whereRaw(
+                                "DATE_FORMAT(tbl_payment.payment_date, '%d %b %Y') LIKE ?",
+                                ["%{$keyword}%"]
+                            );
+                        }
+                    }
+                })
+                ->addColumn('amount', function ($row) {
+                    if (!$row->amount && $row->amount !== 0) {
+                        return <<<HTML
+        <span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+            <i class="ri-minus-line me-1"></i>Tidak ada
+        </span>
+        HTML;
                     }
 
-                    $data->where(function ($q) use ($keyword, $parsedDate) {
-                        $q->whereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%d %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%e %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%d %M %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%e %M %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%d/%m/%Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_payment.payment_date_estimation, '%Y-%m-%d') like ?", ["%{$keyword}%"]);
+                    $formatted = 'Rp ' . number_format($row->amount, 0, ',', '.');
 
-                        if ($parsedDate) {
-                            $q->orWhereRaw("DATE(tbl_payment.payment_date_estimation) = ?", [$parsedDate]);
-                        }
-                    });
+                    return <<<HTML
+    <span style="display:inline-flex;align-items:center;gap:5px;
+                font-size:0.8rem;font-weight:700;color:#1e293b;
+                white-space:nowrap;">
+        <i class="ri-money-rupee-circle-line" style="color:#16a34a;font-size:0.9rem;"></i>
+        {$formatted}
+    </span>
+    HTML;
                 })
-                ->rawColumns(['detail_pembayaran', 'action', 'payment_date_estimation'])
+                ->orderColumn('amount', 'tbl_payment.amount $1')
+                ->filterColumn('amount', function ($query, $keyword) {
+                    $clean = preg_replace('/[Rp\s.]/', '', $keyword);
+                    $clean = str_replace(',', '.', $clean);
+
+                    if (is_numeric($clean)) {
+                        $query->where('tbl_payment.amount', (float) $clean);
+                    } else {
+                        $query->where('tbl_payment.amount', 'like', "%{$keyword}%");
+                    }
+                })
+                ->addColumn('metode_bayar', function ($row) {
+                    if (!$row->metode_bayar) {
+                        return <<<HTML
+        <span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+            <i class="ri-minus-line me-1"></i>Tidak ada
+        </span>
+        HTML;
+                    }
+
+                    $val = e($row->metode_bayar);
+
+                    return <<<HTML
+    <span style="display:inline-flex;align-items:center;gap:5px;
+                background:#f8fafc;color:#334155;
+                border:1px solid #e2e8f0;border-radius:8px;
+                padding:3px 10px;font-size:0.78rem;font-weight:600;
+                white-space:nowrap;">
+        <i class="ri-bank-card-line" style="font-size:0.85rem;color:#0284c7;"></i>
+        {$val}
+    </span>
+    HTML;
+                })
+                ->orderColumn('metode_bayar', 'tbl_payment.metode_bayar $1')
+                ->filterColumn('metode_bayar', function ($query, $keyword) {
+                    $valid = [
+                        'Tunai',
+                        'Transfer Bank',
+                        'Kartu Kredit',
+                        'Kartu Debit',
+                        'QRIS',
+                        'OVO',
+                        'GoPay',
+                        'DANA',
+                        'LinkAja',
+                        'ShopeePay',
+                    ];
+                    // Case-insensitive exact match first
+                    $match = collect($valid)->first(
+                        fn($v) => strtolower($v) === strtolower(trim($keyword))
+                    );
+
+                    if ($match) {
+                        $query->where('tbl_payment.metode_bayar', $match);
+                    } else {
+                        $query->where('tbl_payment.metode_bayar', 'like', "%{$keyword}%");
+                    }
+                })
+                ->addColumn('bukti_bayar', function ($row) {
+                    if (!$row->bukti_bayar) {
+                        return <<<HTML
+        <span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+            <i class="ri-minus-line me-1"></i>Tidak ada
+        </span>
+        HTML;
+                    }
+
+                    $val = e($row->bukti_bayar);
+
+                    return <<<HTML
+    <span style="font-size:0.78rem;color:#334155;font-weight:500;
+                word-break:break-all;">
+        <i class="ri-file-image-line me-1" style="color:#0284c7;"></i>
+        {$val}
+    </span>
+    HTML;
+                })
+                ->orderColumn('bukti_bayar', 'tbl_payment.bukti_bayar $1')
+                ->filterColumn('bukti_bayar', function ($query, $keyword) {
+                    $query->where('tbl_payment.bukti_bayar', 'like', "%{$keyword}%");
+                })
+                ->addColumn('description', function ($row) {
+                    if (!$row->description) {
+                        return <<<HTML
+        <span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+            <i class="ri-minus-line me-1"></i>Tidak ada
+        </span>
+        HTML;
+                    }
+
+                    $val = e($row->description);
+
+                    return <<<HTML
+    <span style="font-size:0.78rem;color:#475569;font-weight:400;
+                line-height:1.5;">
+        {$val}
+    </span>
+    HTML;
+                })
+                ->orderColumn('description', 'tbl_payment.description $1')
+                ->filterColumn('description', function ($query, $keyword) {
+                    $query->where('tbl_payment.description', 'like', "%{$keyword}%");
+                })
+                ->addColumn('payment_date_estimation', function ($row) {
+                    if (!$row->payment_date_estimation) {
+                        return <<<HTML
+        <span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+            <i class="ri-minus-line me-1"></i>Tidak ada
+        </span>
+        HTML;
+                    }
+
+                    $now    = \Carbon\Carbon::now();
+                    $due    = \Carbon\Carbon::parse($row->payment_date_estimation);
+                    $isPast = $due->isPast();
+
+                    $diff   = $now->diff($due);
+                    $years  = $diff->y;
+                    $months = $diff->m;
+                    $days   = $diff->d;
+                    $hours  = $diff->h;
+
+                    $parts = [];
+                    if ($years)  $parts[] = "{$years} tahun";
+                    if ($months) $parts[] = "{$months} bulan";
+                    if ($days)   $parts[] = "{$days} hari";
+                    if ($hours)  $parts[] = "{$hours} jam";
+                    if (empty($parts)) $parts[] = "Hari ini";
+
+                    $duration = implode(' ', $parts);
+                    $dateStr  = $due->translatedFormat('d M Y');
+
+                    if ($isPast) {
+                        $label  = "{$duration} yang lalu";
+                        $icon   = 'ri-alarm-warning-line';
+                        $color  = '#dc2626';
+                        $bg     = '#fef2f2';
+                        $subClr = '#f87171';
+                    } elseif ($due->diffInDays($now) <= 7) {
+                        $label  = "{$duration} lagi";
+                        $icon   = 'ri-alarm-line';
+                        $color  = '#d97706';
+                        $bg     = '#fefce8';
+                        $subClr = '#fbbf24';
+                    } else {
+                        $label  = "{$duration} lagi";
+                        $icon   = 'ri-timer-line';
+                        $color  = '#0284c7';
+                        $bg     = '#e0f2fe';
+                        $subClr = '#94a3b8';
+                    }
+
+                    return <<<HTML
+    <div style="display:flex;flex-direction:column;gap:3px;">
+        <div style="display:inline-flex;align-items:center;gap:5px;
+                    background:{$bg};color:{$color};
+                    border:1px solid {$color}30;border-radius:8px;
+                    padding:3px 9px;font-size:0.78rem;font-weight:700;
+                    width:fit-content;white-space:nowrap;">
+            <i class="{$icon}" style="font-size:0.85rem;"></i>
+            {$label}
+        </div>
+        <span style="font-size:0.68rem;color:{$subClr};padding-left:2px;">
+            <i class="ri-calendar-line me-1"></i>{$dateStr}
+        </span>
+    </div>
+    HTML;
+                })
+                ->orderColumn('payment_date_estimation', 'tbl_payment.payment_date_estimation $1')
+                ->filterColumn('payment_date_estimation', function ($query, $keyword) {
+                    $lower = strtolower(trim($keyword));
+
+                    // "X bulan Y hari Z jam lagi" → future relative
+                    if (str_contains($lower, 'lagi')) {
+                        $years  = 0;
+                        $months = 0;
+                        $days = 0;
+                        $hours = 0;
+                        if (preg_match('/(\d+)\s*tahun/', $lower, $m)) $years  = (int) $m[1];
+                        if (preg_match('/(\d+)\s*bulan/', $lower, $m)) $months = (int) $m[1];
+                        if (preg_match('/(\d+)\s*hari/',  $lower, $m)) $days   = (int) $m[1];
+                        if (preg_match('/(\d+)\s*jam/',   $lower, $m)) $hours  = (int) $m[1];
+                        $date = \Carbon\Carbon::now()
+                            ->addYears($years)->addMonths($months)
+                            ->addDays($days)->addHours($hours);
+                        $query->whereBetween('tbl_payment.payment_date_estimation', [
+                            $date->copy()->subDay()->toDateString(),
+                            $date->copy()->addDay()->toDateString(),
+                        ]);
+                        return;
+                    }
+
+                    // "X bulan Y hari Z jam lalu" / "yang lalu" → past relative
+                    if (str_contains($lower, 'lalu')) {
+                        $years  = 0;
+                        $months = 0;
+                        $days = 0;
+                        $hours = 0;
+                        if (preg_match('/(\d+)\s*tahun/', $lower, $m)) $years  = (int) $m[1];
+                        if (preg_match('/(\d+)\s*bulan/', $lower, $m)) $months = (int) $m[1];
+                        if (preg_match('/(\d+)\s*hari/',  $lower, $m)) $days   = (int) $m[1];
+                        if (preg_match('/(\d+)\s*jam/',   $lower, $m)) $hours  = (int) $m[1];
+                        $date = \Carbon\Carbon::now()
+                            ->subYears($years)->subMonths($months)
+                            ->subDays($days)->subHours($hours);
+                        $query->whereBetween('tbl_payment.payment_date_estimation', [
+                            $date->copy()->subDay()->toDateString(),
+                            $date->copy()->addDay()->toDateString(),
+                        ]);
+                        return;
+                    }
+
+                    // "15 May 2026" or any parseable date
+                    try {
+                        $date = \Carbon\Carbon::createFromFormat('d M Y', trim($keyword));
+                        $query->whereDate('tbl_payment.payment_date_estimation', $date->toDateString());
+                    } catch (\Exception $e) {
+                        try {
+                            $date = \Carbon\Carbon::parse($keyword);
+                            $query->whereDate('tbl_payment.payment_date_estimation', $date->toDateString());
+                        } catch (\Exception $e2) {
+                            $query->whereRaw(
+                                "DATE_FORMAT(tbl_payment.payment_date_estimation, '%d %b %Y') LIKE ?",
+                                ["%{$keyword}%"]
+                            );
+                        }
+                    }
+                })
+                ->addColumn('payment_status', function ($row) {
+                    $map = [
+                        0 => ['label' => 'Unpaid', 'icon' => 'ri-time-line',            'color' => '#64748b', 'bg' => '#f1f5f9'],
+                        1 => ['label' => 'Paid',   'icon' => 'ri-checkbox-circle-line', 'color' => '#16a34a', 'bg' => '#f0fdf4'],
+                    ];
+
+                    $s     = $map[(int) $row->payment_status] ?? $map[0];
+                    $label = $s['label'];
+                    $icon  = $s['icon'];
+                    $color = $s['color'];
+                    $bg    = $s['bg'];
+
+                    return <<<HTML
+    <span style="display:inline-flex;align-items:center;gap:5px;
+                background:{$bg};color:{$color};
+                border:1px solid {$color}30;border-radius:999px;
+                padding:4px 12px;font-size:0.75rem;font-weight:700;
+                letter-spacing:0.03em;white-space:nowrap;">
+        <i class="{$icon}" style="font-size:0.85rem;"></i>
+        {$label}
+    </span>
+    HTML;
+                })
+                ->orderColumn('payment_status', 'tbl_payment.payment_status $1')
+                ->filterColumn('payment_status', function ($query, $keyword) {
+                    $map = [
+                        'unpaid' => 0,
+                        'paid'   => 1,
+                    ];
+                    $kw = strtolower(trim($keyword));
+
+                    if (array_key_exists($kw, $map)) {
+                        $query->where('tbl_payment.payment_status', $map[$kw]);
+                    } elseif (is_numeric($kw)) {
+                        $query->where('tbl_payment.payment_status', (int) $kw);
+                    } else {
+                        $query->where('tbl_payment.payment_status', 'like', "%{$keyword}%");
+                    }
+                })
+                ->rawColumns([
+                    'status_invoice',
+                    'payment_date',
+                    'amount',
+                    'metode_bayar',
+                    'bukti_bayar',
+                    'description',
+                    'payment_date_estimation',
+                    'payment_status',
+                    'action',
+                ])
                 ->make(true);
         }
 
@@ -926,28 +605,6 @@ class PaymentController extends Controller
         }
     }
 
-    public function show($payment_id)
-    {
-        $payment = Payment::with([
-            'invoice',
-            'invoice.delivery',
-            'invoice.delivery.po',
-            'invoice.delivery.po.customer',
-            'invoice.delivery.po.input_user',
-            'invoice.payment',        // all payments for payment history table
-            'input_user',              // recorded by (input_by foreign key)
-        ])->findOrFail($payment_id);
-
-        // Extract invoice so the blade can use $invoice as its root,
-        // while $payment remains available if needed separately.
-        $invoice = $payment->invoice;
-
-        return view('payment-show', compact('payment', 'invoice'));
-    }
-    /**
-     * Delete a payment record and reverse its side effects.
-     * Called via AJAX DELETE from the index page.
-     */
     public function destroy(Payment $payment)
     {
         try {

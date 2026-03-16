@@ -6,7 +6,7 @@
         <h5>Catat Pengiriman Baru</h5>
     </div>
     <div class="card-body">
-        <form id="deliveryForm" action="{{ route('delivery.store') }}" method="POST">
+        <form id="deliveryForm" action="{{ route('delivery.store') }}" method="POST" novalidate autocomplete="off">
             <div class="row">
                 <!-- PO Selection (Select2) -->
                 <div class="col-md-6 mb-3">

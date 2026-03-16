@@ -3,217 +3,256 @@
 @section('title', 'Dashboard')
 
 @section('content')
-<div class="container-xxl flex-grow-1 container-p-y" id="dashboard-main-container">
-    <div class="row mb-4 g-4">
-        <h3>Rekening</h3>
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
-            <div class="card stat-card shadow-sm stats-card" style="border-left-color: #71dd37;" id="dana-tersedia-card"
-                data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                title="Klik untuk melihat detail">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <h4 class="mb-0 fw-bold" id="dana-tersedia">0</h4>
-                            <small class="text-muted">Dana Tersedia</small>
-                        </div>
-                        <div class="avatar p-2 rounded" style="background-color: rgba(102,16,242,0.1);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                                <path fill="#893600" d="M22.005 6h-7a6 6 0 0 0 0 12h7v2a1 1 0 0 1-1 1h-18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1zm-7 2h8v8h-8a4 4 0 1 1 0-8m0 3v2h3v-2z" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
+<div id="main-container-index" class="container-fluid px-3 px-md-4 py-4">
+
+    {{-- ── Rekening ──────────────────────────────────────────────────────── --}}
+    <div class="mb-2">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <div class="bg-success bg-opacity-10 rounded p-2 d-flex align-items-center justify-content-center">
+                <i class="ri-bank-card-line text-success fs-5"></i>
+            </div>
+            <div>
+                <h5 class="fw-bold mb-0">Rekening</h5>
+                <small class="text-muted">Saldo & dana tersedia</small>
             </div>
         </div>
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
-            <div class="card stat-card shadow-sm stats-card" style="border-left-color: #71dd37;"
-                data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                title="Klik untuk melihat detail">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <h4 class="mb-0 fw-bold" id="investasi-dikembalikan">0</h4>
-                            <small class="text-muted">Investasi Dikembalikan</small>
-                        </div>
-                        <div class="avatar p-2 rounded" style="background-color: rgba(102,16,242,0.1);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                                <path fill="#E1B530" d="M9.335 11.502h2.17a4.5 4.5 0 0 1 4.5 4.5H9.004v1h8v-1a5.6 5.6 0 0 0-.885-3h2.886a5 5 0 0 1 4.516 2.852c-2.365 3.12-6.194 5.149-10.516 5.149c-2.761 0-5.1-.59-7-1.625v-9.304a6.97 6.97 0 0 1 3.33 1.428m-4.33 7.5a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1zm13-14a3 3 0 1 1 0 6a3 3 0 0 1 0-6m-7-3a3 3 0 1 1 0 6a3 3 0 0 1 0-6" />
+        <div class="row g-3">
+            <div class="col-sm-6 col-lg-4 col-xxl-3">
+                <div class="card border-0 shadow-sm h-100 stats-card" id="dana_tersedia-card"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Klik untuk melihat detail"
+                    style="border-left: 4px solid #71dd37 !important; cursor:pointer;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="flex-shrink-0 rounded-3 p-2 d-flex align-items-center justify-content-center bg-success bg-opacity-10" style="width:48px;height:48px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24">
+                                <path fill="#16a34a" d="M22.005 6h-7a6 6 0 0 0 0 12h7v2a1 1 0 0 1-1 1h-18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1zm-7 2h8v8h-8a4 4 0 1 1 0-8m0 3v2h3v-2z" />
                             </svg>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
-            <div class="card stat-card shadow-sm stats-card" style="border-left-color: #71dd37;"
-                data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                title="Klik untuk melihat detail">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <h4 class="mb-0 fw-bold" id="totalInvestasiTransfer">0</h4>
-                            <small class="text-muted">Total Investasi Transfer</small>
+                        <div class="flex-grow-1 min-width-0">
+                            <div class="text-muted fw-semibold" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">Dana Tersedia</div>
+                            <h5 class="fw-bold mb-0 text-success" id="dana_tersedia">0</h5>
                         </div>
-                        <div class="avatar p-2 rounded" style="background-color: rgba(102,16,242,0.1);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                                <path fill="#E1B530" d="M14.005 2.003a8 8 0 0 1 3.292 15.293A8 8 0 1 1 6.711 6.71a8 8 0 0 1 7.294-4.707m-3 7h-2v1a2.5 2.5 0 0 0-.164 4.995l.164.005h2l.09.008a.5.5 0 0 1 0 .984l-.09.008h-4v2h2v1h2v-1a2.5 2.5 0 0 0 .164-4.995l-.164-.005h-2l-.09-.008a.5.5 0 0 1 0-.984l.09-.008h4v-2h-2zm3-5A6 6 0 0 0 9.52 6.016a8 8 0 0 1 8.47 8.471a6 6 0 0 0-3.986-10.484" />
-                            </svg>
-                        </div>
+                        <i class="ri-arrow-right-s-line text-muted"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row mb-4 g-4">
-        <h3>Pemasukan</h3>
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
-            <div class="card stat-card shadow-sm stats-card" style="border-left-color: #71dd37;"
-                data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                title="Klik untuk melihat detail">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <h4 class="mb-0 fw-bold" id="total-tf-investasi">0</h4>
-                            <small class="text-muted">Total TF Investasi</small>
-                        </div>
-                        <div class="avatar p-2 rounded" style="background-color: rgba(102,16,242,0.1);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                                <path fill="#20d420" d="M12.005 22.003c-5.523 0-10-4.477-10-10s4.477-10 10-10s10 4.477 10 10s-4.477 10-10 10m0-2a8 8 0 1 0 0-16a8 8 0 0 0 0 16m-3.5-6h5.5a.5.5 0 1 0 0-1h-4a2.5 2.5 0 1 1 0-5h1v-2h2v2h2.5v2h-5.5a.5.5 0 0 0 0 1h4a2.5 2.5 0 0 1 0 5h-1v2h-2v-2h-2.5z" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
+    <hr class="my-4 text-muted opacity-25">
+
+    {{-- ── Pemasukan ─────────────────────────────────────────────────────── --}}
+    <div class="mb-2">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <div class="bg-warning bg-opacity-10 rounded p-2 d-flex align-items-center justify-content-center">
+                <i class="ri-arrow-down-circle-line text-warning fs-5"></i>
+            </div>
+            <div>
+                <h5 class="fw-bold mb-0">Pemasukan</h5>
+                <small class="text-muted">Investasi & margin masuk</small>
             </div>
         </div>
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
-            <div class="card stat-card shadow-sm stats-card" style="border-left-color: #71dd37;"
-                data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                title="Klik untuk melihat detail">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <h4 class="mb-0 fw-bold" id="margin-diterima">0</h4>
-                            <small class="text-muted">Margin Diterima</small>
+        <div class="row g-3">
+
+            {{-- Investasi Dikembalikan --}}
+            <div class="col-sm-6 col-lg-4 col-xxl-3">
+                <div class="card border-0 shadow-sm h-100 stats-card"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Klik untuk melihat detail"
+                    style="border-left: 4px solid #71dd37 !important; cursor:pointer;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="flex-shrink-0 rounded-3 p-2 d-flex align-items-center justify-content-center bg-warning bg-opacity-10" style="width:48px;height:48px;">
+                            <i class="ri-arrow-go-back-line text-warning fs-5"></i>
                         </div>
-                        <div class="avatar p-2 rounded" style="background-color: rgba(102,16,242,0.1);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                                <path fill="#20d420" d="M12.005 22.003c-5.523 0-10-4.477-10-10s4.477-10 10-10s10 4.477 10 10s-4.477 10-10 10m0-2a8 8 0 1 0 0-16a8 8 0 0 0 0 16m-3.5-6h5.5a.5.5 0 1 0 0-1h-4a2.5 2.5 0 1 1 0-5h1v-2h2v2h2.5v2h-5.5a.5.5 0 0 0 0 1h4a2.5 2.5 0 0 1 0 5h-1v2h-2v-2h-2.5z" />
-                            </svg>
+                        <div class="flex-grow-1 min-width-0">
+                            <div class="text-muted fw-semibold" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">Investasi Dikembalikan</div>
+                            <h5 class="fw-bold mb-0" id="investasi_dikembalikan">0</h5>
                         </div>
+                        <i class="ri-arrow-right-s-line text-muted"></i>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
-            <div class="card stat-card shadow-sm stats-card" style="border-left-color: #71dd37;"
-                data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                title="Klik untuk melihat detail">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <h4 class="mb-0 fw-bold" id="total-margin">0</h4>
-                            <small class="text-muted">Total Margin</small>
+
+            {{-- Investasi Tambahan --}}
+            <div class="col-sm-6 col-lg-4 col-xxl-3">
+                <div class="card border-0 shadow-sm h-100 stats-card"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Klik untuk melihat detail"
+                    style="border-left: 4px solid #71dd37 !important; cursor:pointer;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="flex-shrink-0 rounded-3 p-2 d-flex align-items-center justify-content-center bg-warning bg-opacity-10" style="width:48px;height:48px;">
+                            <i class="ri-add-circle-line text-warning fs-5"></i>
                         </div>
-                        <div class="avatar p-2 rounded" style="background-color: rgba(102,16,242,0.1);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                                <path fill="#20d420" d="M12.005 22.003c-5.523 0-10-4.477-10-10s4.477-10 10-10s10 4.477 10 10s-4.477 10-10 10m0-2a8 8 0 1 0 0-16a8 8 0 0 0 0 16m-3.5-6h5.5a.5.5 0 1 0 0-1h-4a2.5 2.5 0 1 1 0-5h1v-2h2v2h2.5v2h-5.5a.5.5 0 0 0 0 1h4a2.5 2.5 0 0 1 0 5h-1v2h-2v-2h-2.5z" />
-                            </svg>
+                        <div class="flex-grow-1 min-width-0">
+                            <div class="text-muted fw-semibold" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">Investasi Tambahan</div>
+                            <h5 class="fw-bold mb-0" id="investasi_tambahan">0</h5>
                         </div>
+                        <i class="ri-arrow-right-s-line text-muted"></i>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
-            <div class="card stat-card shadow-sm stats-card" style="border-left-color: #71dd37;"
-                data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                title="Klik untuk melihat detail">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <h4 class="mb-0 fw-bold" id="sisa-margin">0</h4>
-                            <small class="text-muted">Sisa Margin</small>
+
+            {{-- Investasi Ditahan --}}
+            <div class="col-sm-6 col-lg-4 col-xxl-3">
+                <div class="card border-0 shadow-sm h-100 stats-card"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Klik untuk melihat detail"
+                    style="border-left: 4px solid #fd7e14 !important; cursor:pointer;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="flex-shrink-0 rounded-3 p-2 d-flex align-items-center justify-content-center bg-warning bg-opacity-10" style="width:48px;height:48px;">
+                            <i class="ri-pause-circle-line text-warning fs-5"></i>
                         </div>
-                        <div class="avatar p-2 rounded" style="background-color: rgba(102,16,242,0.1);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                                <path fill="#20d420" d="M12.005 22.003c-5.523 0-10-4.477-10-10s4.477-10 10-10s10 4.477 10 10s-4.477 10-10 10m0-2a8 8 0 1 0 0-16a8 8 0 0 0 0 16m-3.5-6h5.5a.5.5 0 1 0 0-1h-4a2.5 2.5 0 1 1 0-5h1v-2h2v2h2.5v2h-5.5a.5.5 0 0 0 0 1h4a2.5 2.5 0 0 1 0 5h-1v2h-2v-2h-2.5z" />
-                            </svg>
+                        <div class="flex-grow-1 min-width-0">
+                            <div class="text-muted fw-semibold" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">Investasi Ditahan</div>
+                            <h5 class="fw-bold mb-0 text-warning" id="investasi_ditahan">0</h5>
                         </div>
+                        <i class="ri-arrow-right-s-line text-muted"></i>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
-            <div class="card stat-card shadow-sm stats-card" style="border-left-color: #71dd37;"
-                data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                title="Klik untuk melihat detail">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <h4 class="mb-0 fw-bold" id="margin-tersedia">0</h4>
-                            <small class="text-muted">Margin Tersedia</small>
+
+            {{-- Total Investasi Transfer --}}
+            <div class="col-sm-6 col-lg-4 col-xxl-3">
+                <div class="card border-0 shadow-sm h-100 stats-card"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Klik untuk melihat detail"
+                    style="border-left: 4px solid #71dd37 !important; cursor:pointer;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="flex-shrink-0 rounded-3 p-2 d-flex align-items-center justify-content-center bg-success bg-opacity-10" style="width:48px;height:48px;">
+                            <i class="ri-send-plane-line text-success fs-5"></i>
                         </div>
-                        <div class="avatar p-2 rounded" style="background-color: rgba(102,16,242,0.1);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                                <path fill="#20d420" d="M12.005 22.003c-5.523 0-10-4.477-10-10s4.477-10 10-10s10 4.477 10 10s-4.477 10-10 10m0-2a8 8 0 1 0 0-16a8 8 0 0 0 0 16m-3.5-6h5.5a.5.5 0 1 0 0-1h-4a2.5 2.5 0 1 1 0-5h1v-2h2v2h2.5v2h-5.5a.5.5 0 0 0 0 1h4a2.5 2.5 0 0 1 0 5h-1v2h-2v-2h-2.5z" />
-                            </svg>
+                        <div class="flex-grow-1 min-width-0">
+                            <div class="text-muted fw-semibold" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">Total Investasi Transfer</div>
+                            <h5 class="fw-bold mb-0" id="total_investasi_transfer">0</h5>
                         </div>
+                        <i class="ri-arrow-right-s-line text-muted"></i>
                     </div>
                 </div>
             </div>
+
+            {{-- Total Transfer Investasi --}}
+            <div class="col-sm-6 col-lg-4 col-xxl-3">
+                <div class="card border-0 shadow-sm h-100 stats-card"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Klik untuk melihat detail"
+                    style="border-left: 4px solid #71dd37 !important; cursor:pointer;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="flex-shrink-0 rounded-3 p-2 d-flex align-items-center justify-content-center bg-success bg-opacity-10" style="width:48px;height:48px;">
+                            <i class="ri-exchange-dollar-line text-success fs-5"></i>
+                        </div>
+                        <div class="flex-grow-1 min-width-0">
+                            <div class="text-muted fw-semibold" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">Total Transfer Investasi</div>
+                            <h5 class="fw-bold mb-0" id="total_transfer_investasi">0</h5>
+                        </div>
+                        <i class="ri-arrow-right-s-line text-muted"></i>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
-    <div class="row mb-4 g-4">
-        <h3>Ditahan</h3>
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
-            <div class="card stat-card shadow-sm stats-card" style="border-left-color: #71dd37;"
-                data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                title="Klik untuk melihat detail">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <h4 class="mb-0 fw-bold" id="investasi-ditahan">0</h4>
-                            <small class="text-muted">Investasi Yang Ditahan</small>
-                        </div>
-                        <div class="avatar p-2 rounded" style="background-color: rgba(102,16,242,0.1);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                                <path fill="#0c0cff" d="M12.005 22.003c-5.523 0-10-4.477-10-10s4.477-10 10-10s10 4.477 10 10s-4.477 10-10 10m0-2a8 8 0 1 0 0-16a8 8 0 0 0 0 16m-3.5-6h5.5a.5.5 0 1 0 0-1h-4a2.5 2.5 0 1 1 0-5h1v-2h2v2h2.5v2h-5.5a.5.5 0 0 0 0 1h4a2.5 2.5 0 0 1 0 5h-1v2h-2v-2h-2.5z" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
+    <hr class="my-4 text-muted opacity-25">
+
+    {{-- ── Margin ────────────────────────────────────────────────────────── --}}
+    <div class="mb-2">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <div class="bg-primary bg-opacity-10 rounded p-2 d-flex align-items-center justify-content-center">
+                <i class="ri-percent-line text-primary fs-5"></i>
+            </div>
+            <div>
+                <h5 class="fw-bold mb-0">Margin</h5>
+                <small class="text-muted">Distribusi margin PO</small>
             </div>
         </div>
-        <div class="col-sm-6 col-md-6 col-lg-4 col-xxl-3">
-            <div class="card stat-card shadow-sm stats-card" style="border-left-color: #71dd37;"
-                data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                title="Klik untuk melihat detail">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <h4 class="mb-0 fw-bold" id="margin-ditahan">0</h4>
-                            <small class="text-muted">Margin Ditahan</small>
+        <div class="row g-3">
+
+            {{-- Margin Diterima --}}
+            <div class="col-sm-6 col-lg-4 col-xxl-3">
+                <div class="card border-0 shadow-sm h-100 stats-card"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Klik untuk melihat detail"
+                    style="border-left: 4px solid #696cff !important; cursor:pointer;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="flex-shrink-0 rounded-3 p-2 d-flex align-items-center justify-content-center bg-primary bg-opacity-10" style="width:48px;height:48px;">
+                            <i class="ri-hand-coin-line text-primary fs-5"></i>
                         </div>
-                        <div class="avatar p-2 rounded" style="background-color: rgba(102,16,242,0.1);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                                <path fill="#0c0cff" d="M12.005 22.003c-5.523 0-10-4.477-10-10s4.477-10 10-10s10 4.477 10 10s-4.477 10-10 10m0-2a8 8 0 1 0 0-16a8 8 0 0 0 0 16m-3.5-6h5.5a.5.5 0 1 0 0-1h-4a2.5 2.5 0 1 1 0-5h1v-2h2v2h2.5v2h-5.5a.5.5 0 0 0 0 1h4a2.5 2.5 0 0 1 0 5h-1v2h-2v-2h-2.5z" />
-                            </svg>
+                        <div class="flex-grow-1 min-width-0">
+                            <div class="text-muted fw-semibold" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">Margin Diterima</div>
+                            <h5 class="fw-bold mb-0 text-primary" id="margin_diterima">0</h5>
                         </div>
+                        <i class="ri-arrow-right-s-line text-muted"></i>
                     </div>
                 </div>
             </div>
+
+            {{-- Margin Tersedia --}}
+            <div class="col-sm-6 col-lg-4 col-xxl-3">
+                <div class="card border-0 shadow-sm h-100 stats-card"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Klik untuk melihat detail"
+                    style="border-left: 4px solid #71dd37 !important; cursor:pointer;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="flex-shrink-0 rounded-3 p-2 d-flex align-items-center justify-content-center bg-success bg-opacity-10" style="width:48px;height:48px;">
+                            <i class="ri-wallet-3-line text-success fs-5"></i>
+                        </div>
+                        <div class="flex-grow-1 min-width-0">
+                            <div class="text-muted fw-semibold" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">Margin Tersedia</div>
+                            <h5 class="fw-bold mb-0 text-success" id="margin_tersedia">0</h5>
+                        </div>
+                        <i class="ri-arrow-right-s-line text-muted"></i>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Margin Ditahan --}}
+            <div class="col-sm-6 col-lg-4 col-xxl-3">
+                <div class="card border-0 shadow-sm h-100 stats-card"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Klik untuk melihat detail"
+                    style="border-left: 4px solid #fd7e14 !important; cursor:pointer;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="flex-shrink-0 rounded-3 p-2 d-flex align-items-center justify-content-center bg-warning bg-opacity-10" style="width:48px;height:48px;">
+                            <i class="ri-lock-2-line text-warning fs-5"></i>
+                        </div>
+                        <div class="flex-grow-1 min-width-0">
+                            <div class="text-muted fw-semibold" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">Margin Ditahan</div>
+                            <h5 class="fw-bold mb-0 text-warning" id="margin_ditahan">0</h5>
+                        </div>
+                        <i class="ri-arrow-right-s-line text-muted"></i>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Total Margin --}}
+            <div class="col-sm-6 col-lg-4 col-xxl-3">
+                <div class="card border-0 shadow-sm h-100 stats-card"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Klik untuk melihat detail"
+                    style="border-left: 4px solid #71dd37 !important; cursor:pointer;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="flex-shrink-0 rounded-3 p-2 d-flex align-items-center justify-content-center bg-success bg-opacity-10" style="width:48px;height:48px;">
+                            <i class="ri-funds-line text-success fs-5"></i>
+                        </div>
+                        <div class="flex-grow-1 min-width-0">
+                            <div class="text-muted fw-semibold" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">Total Margin</div>
+                            <h5 class="fw-bold mb-0 text-success" id="total_margin">0</h5>
+                        </div>
+                        <i class="ri-arrow-right-s-line text-muted"></i>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Sisa Margin --}}
+            <div class="col-sm-6 col-lg-4 col-xxl-3">
+                <div class="card border-0 shadow-sm h-100 stats-card"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Klik untuk melihat detail"
+                    style="border-left: 4px solid #03c3ec !important; cursor:pointer;">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="flex-shrink-0 rounded-3 p-2 d-flex align-items-center justify-content-center bg-info bg-opacity-10" style="width:48px;height:48px;">
+                            <i class="ri-bar-chart-grouped-line text-info fs-5"></i>
+                        </div>
+                        <div class="flex-grow-1 min-width-0">
+                            <div class="text-muted fw-semibold" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">Sisa Margin</div>
+                            <h5 class="fw-bold mb-0 text-info" id="sisa_margin">0</h5>
+                        </div>
+                        <i class="ri-arrow-right-s-line text-muted"></i>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
+
 </div>
 @endsection

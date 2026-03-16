@@ -3,7 +3,7 @@
         Peringatan: Apakah anda yakin menghapus seluruh PO?
     </swal-title>
     <swal-html>
-        <form action="{{ route('po.truncate') }}" id="truncate-po-form">
+        <form action="{{ route('po.truncate') }}" id="truncate-po-form" novalidate autocomplete="off">
             <div class="mb-4">
                 <label for="swal-reason" class="form-label fw-semibold">
                     Alasan <span class="text-danger">*</span>

@@ -26,7 +26,7 @@ class InvoiceController extends Controller
                 ->select([
                     'tbl_invoice.*',
                     'tbl_delivery.delivery_no',
-                    'tbl_delivery.qty_delivered',
+                    'tbl_delivery.qty_delivered as qty_delivered',
                     'tbl_delivery.delivered_at',
                     'tbl_delivery.delivered_status',
                     'tbl_delivery.invoiced_status',
@@ -34,6 +34,7 @@ class InvoiceController extends Controller
                     'tbl_po.nama_barang',
                     'tbl_po.harga',
                     'tbl_po.total as po_total',
+                    'tbl_po.qty as qty',
                     DB::raw('tbl_delivery.qty_delivered * tbl_po.harga as invoice_amount'),
                     'tbl_payment.payment_date',
                     'tbl_payment.amount as paid_amount'
@@ -41,872 +42,526 @@ class InvoiceController extends Controller
 
             return DataTables::of($data)
                 ->addIndexColumn()
-                ->addColumn('invoice_details', function ($row) {
-                    $invoicedAtDate = Carbon::parse($row->tgl_invoice);
-                    $relative        = $invoicedAtDate->toIndonesianRelative();
+                // ── No PO ──────────────────────────────────────────────────────────────────
+                ->addColumn('no_po', function ($row) {
+                    $label   = $row->no_po ?? 'Tanpa PO';
+                    $isTanpa = $label === 'Tanpa PO';
+                    $bg      = $isTanpa ? '#f1f5f9' : '#eff6ff';
+                    $color   = $isTanpa ? '#94a3b8' : '#2563eb';
+                    $icon    = $isTanpa ? 'ri-file-unknow-line' : 'ri-file-list-3-line';
 
-                    $tenggatWaktu = Carbon::parse($row->due_date);
-                    $relative_2        = $tenggatWaktu->toIndonesianRelative();
+                    return <<<HTML
+                    <div style="display:inline-flex;align-items:center;gap:6px;
+                                background:{$bg};color:{$color};
+                                border:1px solid {$color}30;border-radius:8px;
+                                padding:4px 10px;font-size:0.78rem;font-weight:700;">
+                        <i class="{$icon}"></i>
+                        {$label}
+                    </div>
+                    HTML;
 
-                    $tglInvoice  = $row->tgl_invoice ? \Carbon\Carbon::parse($row->tgl_invoice) : null;
-                    $dueDate     = $row->due_date    ? \Carbon\Carbon::parse($row->due_date)    : null;
+                    // ── Nama Barang ────────────────────────────────────────────────────────────
+                })->addColumn('nama_barang', function ($row) {
+                    $nama = $row->nama_barang ?? '-';
 
-                    $tglFormatted   = $tglInvoice ? $tglInvoice->format('d M Y')  : '—';
-                    $dueFormatted   = $dueDate    ? $dueDate->format('d M Y')     : '—';
+                    return <<<HTML
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="width:32px;height:32px;border-radius:8px;
+                                    background:#ede9fe;color:#7c3aed;
+                                    display:flex;align-items:center;justify-content:center;
+                                    font-size:1rem;flex-shrink:0;">
+                            <i class="ri-box-3-line"></i>
+                        </div>
+                        <span style="font-size:0.82rem;font-weight:600;color:#1e293b;
+                                    max-width:120px;white-space:normal;word-break:break-word;line-height:1.3;">
+                            {$nama}
+                        </span>
+                    </div>
+                    HTML;
 
-                    // ── Due Date State ──────────────────────────────────────────
-                    $isOverdue  = $dueDate && $dueDate->isPast() && (int) $row->status_invoice === 0;
-                    $isDueToday = $dueDate && $dueDate->isToday() && (int) $row->status_invoice === 0;
-                    $dueBadgeColor = '#10b981'; // default green = fine
-                    $dueBadgeLabel = 'On Time';
-                    if ($isDueToday) {
-                        $dueBadgeColor = '#f59e0b';
-                        $dueBadgeLabel = 'Jatuh Tempo Hari Ini';
-                    } elseif ($isOverdue) {
-                        $dueBadgeColor = '#ef4444';
-                        $dueBadgeLabel = 'OVERDUE';
+                    // ── Delivery No ────────────────────────────────────────────────────────────
+                })->addColumn('delivery_no', function ($row) {
+                    $no = $row->delivery_no ?? '-';
+
+                    return <<<HTML
+                    <div style="display:inline-flex;align-items:center;gap:6px;
+                                background:#f0f9ff;color:#0284c7;
+                                border:1px solid #0284c730;border-radius:8px;
+                                padding:4px 10px;font-size:0.78rem;font-weight:700;">
+                        <i class="ri-truck-line"></i>
+                        {$no}
+                    </div>
+                    HTML;
+
+                    // ── Qty Delivered ──────────────────────────────────────────────────────────
+                })->addColumn('qty_delivered', function ($row) {
+                    $qty   = number_format((float) $row->qty_delivered, 0, ',', '.');
+                    $qtyPo = number_format((float) ($row->qty ?? 0), 0, ',', '.');
+                    $pct   = ($row->qty ?? 0) > 0
+                        ? round(($row->qty_delivered / $row->qty) * 100)
+                        : 0;
+
+                    [$bg, $color, $barColor] = match (true) {
+                        $pct <= 0  => ['#fef2f2', '#dc2626', '#fca5a5'],
+                        $pct < 50  => ['#fff7ed', '#ea580c', '#fdba74'],
+                        $pct < 100 => ['#eff6ff', '#2563eb', '#93c5fd'],
+                        default    => ['#f0fdf4', '#16a34a', '#86efac'],
+                    };
+
+                    return <<<HTML
+    <div style="display:flex;flex-direction:column;gap:4px;min-width:100px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.82rem;font-weight:700;color:#1e293b;">
+                <i class="ri-stack-line me-1" style="color:{$color};"></i>{$qty}
+            </span>
+            <span style="font-size:0.7rem;font-weight:700;color:{$color};
+                         background:{$bg};border:1px solid {$color}30;
+                         border-radius:999px;padding:1px 7px;">
+                {$pct}%
+            </span>
+        </div>
+        <div style="height:5px;background:#e2e8f0;border-radius:999px;overflow:hidden;">
+            <div style="height:100%;width:{$pct}%;background:{$barColor};
+                        border-radius:999px;transition:width 0.4s ease;"></div>
+        </div>
+        <span style="font-size:0.68rem;color:#94a3b8;">dari {$qtyPo} Unit</span>
+    </div>
+    HTML;
+
+                    // ── Delivered Status ───────────────────────────────────────────────────────
+                })->addColumn('delivered_status', function ($row) {
+                    $status = (int) $row->delivered_status;
+
+                    if ($status === 1) {
+                        return <<<HTML
+                        <span style="display:inline-flex;align-items:center;gap:5px;
+                                    background:#f0fdf4;color:#16a34a;
+                                    border:1px solid #16a34a30;border-radius:999px;
+                                    padding:4px 12px;font-size:0.75rem;font-weight:700;
+                                    white-space:nowrap;">
+                            <i class="ri-checkbox-circle-line" style="font-size:0.9rem;"></i>
+                            Delivered
+                        </span>
+                        HTML;
                     }
 
-                    // ── Invoice Status ──────────────────────────────────────────
-                    $statusMap = match ((int) $row->status_invoice) {
-                        0       => ['label' => 'Unpaid',    'icon' => 'ri-time-line',         'color' => '#ef4444', 'bg' => '#fef2f2', 'border' => '#fecaca'],
-                        1       => ['label' => 'Paid',      'icon' => 'ri-checkbox-circle-fill', 'color' => '#10b981', 'bg' => '#f0fdf4', 'border' => '#bbf7d0'],
-                        2       => ['label' => 'Cancelled', 'icon' => 'ri-close-circle-line',  'color' => '#9ca3af', 'bg' => '#f9fafb', 'border' => '#e5e7eb'],
-                        default => ['label' => 'Unknown',   'icon' => 'ri-question-line',      'color' => '#9ca3af', 'bg' => '#f9fafb', 'border' => '#e5e7eb'],
-                    };
+                    return <<<HTML
+                    <span style="display:inline-flex;align-items:center;gap:5px;
+                                background:#f1f5f9;color:#64748b;
+                                border:1px solid #64748b30;border-radius:999px;
+                                padding:4px 12px;font-size:0.75rem;font-weight:700;
+                                white-space:nowrap;">
+                        <i class="ri-time-line" style="font-size:0.85rem;"></i>
+                        Pending
+                    </span>
+                    HTML;
 
-                    return '
-                        <style>
-                            .inv-card {
-                                display: flex;
-                                flex-direction: column;
-                                gap: 0;
-                                min-width: 230px;
-                                max-width: 270px;
-                                background: #ffffff;
-                                border: 1px solid #e5e7eb;
-                                border-radius: 12px;
-                                overflow: hidden;
-                                box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-                                font-family: inherit;
-                            }
-                            .inv-card-header {
-                                padding: 10px 14px 8px;
-                                background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-                                border-bottom: 1px solid #e5e7eb;
-                                display: flex;
-                                align-items: center;
-                                gap: 8px;
-                            }
-                            .inv-header-icon {
-                                width: 28px;
-                                height: 28px;
-                                background: #ede9fe;
-                                border-radius: 8px;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                font-size: 0.85rem;
-                                color: #7c3aed;
-                                flex-shrink: 0;
-                            }
-                            .inv-card-body {
-                                padding: 10px 14px;
-                                display: flex;
-                                flex-direction: column;
-                                gap: 8px;
-                            }
-                            .inv-row {
-                                display: flex;
-                                align-items: flex-start;
-                                gap: 8px;
-                            }
-                            .inv-row-icon {
-                                width: 22px;
-                                height: 22px;
-                                border-radius: 6px;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                font-size: 0.75rem;
-                                flex-shrink: 0;
-                                margin-top: 1px;
-                            }
-                            .inv-row-content {
-                                display: flex;
-                                flex-direction: column;
-                                gap: 1px;
-                            }
-                            .inv-row-label {
-                                font-size: 0.6rem;
-                                font-weight: 600;
-                                text-transform: uppercase;
-                                letter-spacing: 0.06em;
-                                color: #94a3b8;
-                            }
-                            .inv-row-value {
-                                font-size: 0.82rem;
-                                font-weight: 600;
-                                color: #1e293b;
-                                line-height: 1.3;
-                            }
-                            .inv-divider {
-                                height: 1px;
-                                background: #f1f5f9;
-                                margin: 0 -14px;
-                            }
-                            .inv-badge {
-                                display: inline-block;
-                                font-size: 0.62rem;
-                                font-weight: 600;
-                                padding: 1px 7px;
-                                border-radius: 20px;
-                                margin-top: 2px;
-                            }
-                            .inv-status-footer {
-                                padding: 8px 14px 10px;
-                                background: ' . $statusMap['bg'] . ';
-                                border-top: 1.5px solid ' . $statusMap['border'] . ';
-                                display: flex;
-                                flex-direction: column;
-                                gap: 5px;
-                            }
-                            .inv-status-chip {
-                                display: inline-flex;
-                                align-items: center;
-                                gap: 5px;
-                                padding: 4px 10px 4px 7px;
-                                border-radius: 20px;
-                                font-size: 0.72rem;
-                                font-weight: 600;
-                                letter-spacing: 0.01em;
-                                border: 1.5px solid;
-                                width: fit-content;
-                            }
-                            .inv-due-chip {
-                                display: inline-flex;
-                                align-items: center;
-                                gap: 4px;
-                                padding: 3px 8px;
-                                border-radius: 20px;
-                                font-size: 0.62rem;
-                                font-weight: 700;
-                                border: 1.5px solid;
-                                width: fit-content;
-                            }
-                        </style>
-                        <div class="inv-card shadow-lg">
+                    // ── Nomor Invoice ──────────────────────────────────────────────────────────
+                })->addColumn('nomor_invoice', function ($row) {
+                    $no = $row->nomor_invoice ?? '-';
 
-                            <!-- Header: Nomor Invoice -->
-                            <div class="inv-card-header">
-                                <div class="inv-header-icon"><i class="ri-file-text-line"></i></div>
-                                <div>
-                                    <div style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;">Nomor Invoice</div>
-                                    <div style="font-size:0.8rem;font-weight:700;color:#1e293b;">' . e($row->nomor_invoice ?? '—') . '</div>
-                                </div>
-                            </div>
+                    return <<<HTML
+                    <div style="display:inline-flex;align-items:center;gap:6px;
+                                background:#fdf4ff;color:#a21caf;
+                                border:1px solid #a21caf30;border-radius:8px;
+                                padding:4px 10px;font-size:0.78rem;font-weight:700;">
+                        <i class="ri-file-list-3-line"></i>
+                        {$no}
+                    </div>
+                    HTML;
 
-                            <!-- Body -->
-                            <div class="inv-card-body">
-
-                                <!-- Tanggal Invoice -->
-                                <div class="inv-row">
-                                    <div class="inv-row-icon" style="background:#ede9fe;color:#7c3aed;">
-                                        <i class="ri-file-add-line"></i>
-                                    </div>
-                                    <div class="inv-row-content">
-                                        <span class="inv-row-label">Tanggal Invoice</span>
-                                        <span class="inv-row-value">' . $tglFormatted . '</span>
-                                        <span class="del-relative-badge">' . $relative . '</span>
-                                    </div>
-                                </div>
-
-                                <div class="inv-divider"></div>
-
-                                <!-- Due Date -->
-                                <div class="inv-row">
-                                    <div class="inv-row-icon" style="background:' . ($isOverdue ? '#fee2e2' : ($isDueToday ? '#fef3c7' : '#dcfce7')) . ';color:' . $dueBadgeColor . ';">
-                                        <i class="ri-calendar-close-line"></i>
-                                    </div>
-                                    <div class="inv-row-content">
-                                        <span class="inv-row-label">Tenggat Waktu</span>
-                                        <span class="inv-row-value">' . $dueFormatted . '</span>
-                                        <span class="del-relative-badge">' . $relative_2 . '</span>
-                                        ' . ((int) $row->status_invoice === 0 ? '
-                                        <span class="inv-badge" style="background:' . $dueBadgeColor . '18;color:' . $dueBadgeColor . ';border:1px solid ' . $dueBadgeColor . '40;">
-                                            ' . ($isOverdue ? '<i class="ri-alarm-warning-line me-1"></i>' : '<i class="ri-time-line me-1"></i>') . $dueBadgeLabel . '
-                                        </span>' : '') . '
-                                    </div>
-                                </div>
-
-                                <!-- Tagihan -->
-                                <div class="inv-row">
-                                    <div class="inv-row-icon text-success">
-                                        <i class="ri-money-dollar-circle-line"></i>
-                                    </div>
-                                    <div class="inv-row-content">
-                                        <span class="inv-row-label">Tagihan</span>
-                                        <span class="inv-row-value text-success">Rp ' . number_format($row->invoice_amount ?? 0, 0, ',', '.') . '</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Status Footer -->
-                            <div class="inv-status-footer">
-                                <div style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;margin-bottom:2px;">Status Invoice</div>
-
-                                <span class="inv-status-chip" style="background:' . $statusMap['color'] . '18;color:' . $statusMap['color'] . ';border-color:' . $statusMap['color'] . '40;">
-                                    <i class="' . $statusMap['icon'] . '" style="font-size:0.85rem;"></i>
-                                    ' . $statusMap['label'] . '
-                                </span>
-                                ' . ($isOverdue ? '
-                                <span class="inv-due-chip" style="background:#ef444418;color:#ef4444;border-color:#ef444440;">
-                                    <i class="ri-error-warning-line"></i> Overdue
-                                </span>' : '') . '
-                            </div>
-
-                        </div>
-                        ';
-                })
-                ->addColumn('delivery_details', function ($row) {
-                    $deliveredAtDate = Carbon::parse($row->delivered_at);
-                    $relative        = $deliveredAtDate->toIndonesianRelative();
-                    $deliveredAt     = $row->delivered_at
-                        ? Carbon::parse($row->delivered_at)->format('d M Y')
-                        : '—';
-
-                    // ── Delivered Status ─────────────────────────────────
-                    $deliveredStatus = match ((int) $row->delivered_status) {
-                        0       => ['label' => 'Dalam Perjalanan',  'icon' => 'ri-time-line',    'color' => '#f59e0b'],
-                        1       => ['label' => 'Sudah Tiba Tujuan', 'icon' => 'ri-truck-line',   'color' => '#0ea5e9'],
-                        default => ['label' => 'Unknown',           'icon' => 'ri-question-line', 'color' => '#9ca3af'],
-                    };
-
-                    // ── Invoiced Status ───────────────────────────────────
-                    $invoicedStatus = match ((int) $row->invoiced_status) {
-                        0       => ['label' => 'Belum Di Invoice', 'icon' => 'ri-file-forbid-line', 'color' => '#ef4444'],
-                        1       => ['label' => 'Sudah Di Invoice', 'icon' => 'ri-file-check-line',  'color' => '#3b82f6'],
-                        default => ['label' => 'Unknown',          'icon' => 'ri-question-line',    'color' => '#9ca3af'],
-                    };
-
-                    return '
-                        <style>
-                            .del-card {
-                                display: flex;
-                                flex-direction: column;
-                                gap: 0;
-                                min-width: 220px;
-                                max-width: 260px;
-                                background: #ffffff;
-                                border: 1px solid #e5e7eb;
-                                border-radius: 12px;
-                                overflow: hidden;
-                                box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-                                font-family: inherit;
-                            }
-                            .del-card-header {
-                                padding: 10px 14px 8px;
-                                background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-                                border-bottom: 1px solid #e5e7eb;
-                                display: flex;
-                                align-items: center;
-                                gap: 8px;
-                            }
-                            .del-header-icon {
-                                width: 28px;
-                                height: 28px;
-                                background: #dbeafe;
-                                border-radius: 8px;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                font-size: 0.85rem;
-                                color: #3b82f6;
-                                flex-shrink: 0;
-                            }
-                            .del-card-body {
-                                padding: 10px 14px;
-                                display: flex;
-                                flex-direction: column;
-                                gap: 8px;
-                            }
-                            .del-row {
-                                display: flex;
-                                align-items: flex-start;
-                                gap: 8px;
-                            }
-                            .del-row-icon {
-                                width: 22px;
-                                height: 22px;
-                                border-radius: 6px;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                font-size: 0.75rem;
-                                flex-shrink: 0;
-                                margin-top: 1px;
-                            }
-                            .del-row-content {
-                                display: flex;
-                                flex-direction: column;
-                                gap: 1px;
-                            }
-                            .del-row-label {
-                                font-size: 0.6rem;
-                                font-weight: 600;
-                                text-transform: uppercase;
-                                letter-spacing: 0.06em;
-                                color: #94a3b8;
-                            }
-                            .del-row-value {
-                                font-size: 0.82rem;
-                                font-weight: 600;
-                                color: #1e293b;
-                                line-height: 1.3;
-                            }
-                            .del-relative-badge {
-                                display: inline-block;
-                                font-size: 0.62rem;
-                                font-weight: 600;
-                                padding: 1px 7px;
-                                border-radius: 20px;
-                                background: #e0f2fe;
-                                color: #0369a1;
-                                margin-top: 2px;
-                            }
-                            .del-divider {
-                                height: 1px;
-                                background: #f1f5f9;
-                                margin: 0 -14px;
-                            }
-                            .del-status-footer {
-                                padding: 8px 14px 10px;
-                                background: #fafafa;
-                                border-top: 1px solid #f1f5f9;
-                                display: flex;
-                                flex-direction: column;
-                                gap: 5px;
-                            }
-                            .del-status-chip {
-                                display: inline-flex;
-                                align-items: center;
-                                gap: 5px;
-                                padding: 4px 10px 4px 7px;
-                                border-radius: 20px;
-                                font-size: 0.72rem;
-                                font-weight: 600;
-                                letter-spacing: 0.01em;
-                                border: 1.5px solid;
-                                width: fit-content;
-                            }
-                        </style>
-                        <div class="del-card shadow-lg">
-
-                            <!-- Header: Delivery No -->
-                            <div class="del-card-header">
-                                <div class="del-header-icon"><i class="ri-truck-line"></i></div>
-                                <div>
-                                    <div style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;">No. Delivery</div>
-                                    <div style="font-size:0.8rem;font-weight:700;color:#1e293b;">' . e($row->delivery_no) . '</div>
-                                </div>
-                            </div>
-
-                            <!-- Body -->
-                            <div class="del-card-body">
-
-                                <!-- Qty Delivered -->
-                                <div class="del-row">
-                                    <div class="del-row-icon" style="background:#dcfce7;color:#16a34a;">
-                                        <i class="ri-stack-line"></i>
-                                    </div>
-                                    <div class="del-row-content">
-                                        <span class="del-row-label">Qty Delivered</span>
-                                        <span class="del-row-value">' . number_format((float) $row->qty_delivered, 0, ',', '.') . ' Unit</span>
-                                    </div>
-                                </div>
-
-                                <div class="del-divider"></div>
-
-                                <!-- Tiba -->
-                                <div class="del-row">
-                                    <div class="del-row-icon" style="background:#dcfce7;color:#16a34a;">
-                                        <i class="ri-calendar-check-line"></i>
-                                    </div>
-                                    <div class="del-row-content">
-                                        <span class="del-row-label">Tiba</span>
-                                        <span class="del-row-value">' . $deliveredAt . '</span>
-                                        <span class="del-relative-badge">' . $relative . '</span>
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            <!-- Status Footer -->
-                            <div class="del-status-footer">
-                                <div style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;margin-bottom:2px;">Status Delivery</div>
-
-                                <span class="del-status-chip" style="background:' . $deliveredStatus['color'] . '18;color:' . $deliveredStatus['color'] . ';border-color:' . $deliveredStatus['color'] . '40;">
-                                    <i class="' . $deliveredStatus['icon'] . '" style="font-size:0.8rem;"></i>
-                                    ' . $deliveredStatus['label'] . '
-                                </span>
-
-                                <span class="del-status-chip" style="background:' . $invoicedStatus['color'] . '18;color:' . $invoicedStatus['color'] . ';border-color:' . $invoicedStatus['color'] . '40;">
-                                    <i class="' . $invoicedStatus['icon'] . '" style="font-size:0.8rem;"></i>
-                                    ' . $invoicedStatus['label'] . '
-                                </span>
-                            </div>
-
-                        </div>
-                        ';
-                })
-                ->addColumn('due_date_timer', function ($row) {
-                    // ── STATE 1: PAID ─────────────────────────────────────────
-                    if ((int) $row->status_invoice === 1) {
-                        return '
-                            <style>
-                                .ddt-card {
-                                    display: inline-flex;
-                                    flex-direction: column;
-                                    gap: 0;
-                                    min-width: 190px;
-                                    background: #ffffff;
-                                    border: 1px solid #e5e7eb;
-                                    border-radius: 12px;
-                                    overflow: hidden;
-                                    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-                                    font-family: inherit;
-                                }
-                                .ddt-card-body {
-                                    padding: 10px 14px;
-                                    display: flex;
-                                    align-items: center;
-                                    gap: 10px;
-                                }
-                                .ddt-icon-wrap {
-                                    width: 32px;
-                                    height: 32px;
-                                    border-radius: 8px;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    font-size: 1rem;
-                                    flex-shrink: 0;
-                                }
-                                .ddt-label {
-                                    font-size: 0.6rem;
-                                    font-weight: 600;
-                                    text-transform: uppercase;
-                                    letter-spacing: 0.06em;
-                                    color: #94a3b8;
-                                }
-                                .ddt-value {
-                                    font-size: 0.82rem;
-                                    font-weight: 700;
-                                    color: #1e293b;
-                                    line-height: 1.3;
-                                }
-                                .ddt-footer {
-                                    padding: 5px 14px 8px;
-                                    border-top: 1.5px solid;
-                                }
-                                .ddt-chip {
-                                    display: inline-flex;
-                                    align-items: center;
-                                    gap: 5px;
-                                    padding: 3px 10px 3px 7px;
-                                    border-radius: 20px;
-                                    font-size: 0.72rem;
-                                    font-weight: 700;
-                                    border: 1.5px solid;
-                                }
-                            </style>
-                            <div class="ddt-card shadow-lg">
-                                <div class="ddt-card-body">
-                                    <div class="ddt-icon-wrap" style="background:#dcfce7;color:#16a34a;">
-                                        <i class="ri-check-double-line"></i>
-                                    </div>
-                                    <div class="d-flex flex-column gap-0">
-                                        <span class="ddt-label">Status Pembayaran</span>
-                                        <span class="ddt-value">Lunas</span>
-                                    </div>
-                                </div>
-                                <div class="ddt-footer" style="background:#f0fdf4;border-color:#bbf7d0;">
-                                    <span class="ddt-chip" style="background:#10b98118;color:#10b981;border-color:#10b98140;">
-                                        <i class="ri-checkbox-circle-fill" style="font-size:0.8rem;"></i>
-                                        Sudah Dibayar
-                                    </span>
-                                </div>
-                            </div>';
+                    // ── Tanggal Invoice ────────────────────────────────────────────────────────
+                })->addColumn('tgl_invoice', function ($row) {
+                    if (!$row->tgl_invoice) {
+                        return <<<HTML
+                        <span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+                            <i class="ri-minus-line me-1"></i>Tidak ada
+                        </span>
+                        HTML;
                     }
 
-                    // ── STATE 2: NO DUE DATE ──────────────────────────────────
+                    $date     = \Carbon\Carbon::parse($row->tgl_invoice);
+                    $dateStr  = $date->translatedFormat('d M Y');
+                    $relative = $date->diffForHumans();
+
+                    return <<<HTML
+                    <div style="display:flex;flex-direction:column;gap:2px;">
+                        <span style="font-size:0.82rem;font-weight:700;color:#1e293b;">
+                            <i class="ri-calendar-line me-1" style="color:#7c3aed;"></i>
+                            {$dateStr}
+                        </span>
+                        <span style="font-size:0.7rem;color:#94a3b8;font-weight:500;">
+                            {$relative}
+                        </span>
+                    </div>
+                    HTML;
+
+                    // ── Due Date ───────────────────────────────────────────────────────────────
+                })->addColumn('due_date', function ($row) {
                     if (!$row->due_date) {
-                        return '
-                            <div class="ddt-card shadow-lg">
-                                <div class="ddt-card-body">
-                                    <div class="ddt-icon-wrap" style="background:#f1f5f9;color:#94a3b8;">
-                                        <i class="ri-calendar-2-line"></i>
-                                    </div>
-                                    <div class="d-flex flex-column gap-0">
-                                        <span class="ddt-label">Tenggat Waktu</span>
-                                        <span class="ddt-value" style="color:#94a3b8;">Tidak Ditentukan</span>
-                                    </div>
-                                </div>
-                                <div class="ddt-footer" style="background:#f9fafb;border-color:#e5e7eb;">
-                                    <span class="ddt-chip" style="background:#9ca3af18;color:#9ca3af;border-color:#9ca3af40;">
-                                        <i class="ri-minus-circle-line" style="font-size:0.8rem;"></i>
-                                        Tidak Ada Tenggat
-                                    </span>
-                                </div>
-                            </div>';
+                        return <<<HTML
+                        <span style="font-size:0.75rem;color:#94a3b8;font-weight:500;">
+                            <i class="ri-minus-line me-1"></i>Tidak ada
+                        </span>
+                        HTML;
                     }
 
-                    // ── STATE 3: COUNTDOWN / OVERDUE ─────────────────────────
-                    $dueDate          = \Carbon\Carbon::parse($row->due_date);
-                    $isOverdue        = $dueDate->isPast();
-                    $isDueToday       = $dueDate->isToday();
-                    $dueDateFormatted = $dueDate->format('d M Y');
-                    $isoTarget        = $dueDate->toISOString();
+                    $now    = \Carbon\Carbon::now();
+                    $due    = \Carbon\Carbon::parse($row->due_date);
+                    $isPast = $due->isPast();
 
-                    if ($isOverdue) {
-                        $headerBg     = 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)';
-                        $headerBorder = '#fecaca';
-                        $iconBg       = '#fee2e2';
-                        $iconColor    = '#ef4444';
-                        $headerIcon   = 'ri-alarm-warning-line';
-                        $headerLabel  = 'Tenggat Waktu';
-                        $headerColor  = '#7f1d1d';
-                        $timerColor   = '#ef4444';
-                    } elseif ($isDueToday) {
-                        $headerBg     = 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)';
-                        $headerBorder = '#fde68a';
-                        $iconBg       = '#fde68a';
-                        $iconColor    = '#d97706';
-                        $headerIcon   = 'ri-alarm-line';
-                        $headerLabel  = 'Jatuh Tempo';
-                        $headerColor  = '#78350f';
-                        $timerColor   = '#d97706';
+                    $diff   = $now->diff($due);
+                    $years  = $diff->y;
+                    $months = $diff->m;
+                    $days   = $diff->d;
+                    $hours  = $diff->h;
+
+                    $parts = [];
+                    if ($years)  $parts[] = "{$years} tahun";
+                    if ($months) $parts[] = "{$months} bulan";
+                    if ($days)   $parts[] = "{$days} hari";
+                    if ($hours)  $parts[] = "{$hours} jam";
+                    if (empty($parts)) $parts[] = "Hari ini";
+
+                    $duration = implode(' ', $parts);
+                    $dateStr  = $due->translatedFormat('d M Y');
+
+                    if ($isPast) {
+                        $label  = "{$duration} yang lalu";
+                        $icon   = 'ri-alarm-warning-line';
+                        $color  = '#dc2626';
+                        $bg     = '#fef2f2';
+                        $subClr = '#f87171';
+                    } elseif ($due->diffInDays($now) <= 7) {
+                        $label  = "{$duration} lagi";
+                        $icon   = 'ri-alarm-line';
+                        $color  = '#d97706';
+                        $bg     = '#fefce8';
+                        $subClr = '#fbbf24';
                     } else {
-                        $headerBg     = 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)';
-                        $headerBorder = '#e5e7eb';
-                        $iconBg       = '#e0f2fe';
-                        $iconColor    = '#0284c7';
-                        $headerIcon   = 'ri-calendar-check-line';
-                        $headerLabel  = 'Tenggat Waktu';
-                        $headerColor  = '#1e293b';
-                        $timerColor   = '#0284c7';
+                        $label  = "{$duration} lagi";
+                        $icon   = 'ri-timer-line';
+                        $color  = '#0284c7';
+                        $bg     = '#e0f2fe';
+                        $subClr = '#94a3b8';
                     }
 
-                    return '
-                        <div class="ddt-card timer-wrapper shadow-lg" data-target="' . $isoTarget . '">
+                    return <<<HTML
+                    <div style="display:flex;flex-direction:column;gap:3px;">
+                        <div style="display:inline-flex;align-items:center;gap:5px;
+                                    background:{$bg};color:{$color};
+                                    border:1px solid {$color}30;border-radius:8px;
+                                    padding:3px 9px;font-size:0.78rem;font-weight:700;
+                                    width:fit-content;white-space:nowrap;">
+                            <i class="{$icon}" style="font-size:0.85rem;"></i>
+                            {$label}
+                        </div>
+                        <span style="font-size:0.68rem;color:{$subClr};padding-left:2px;">
+                            <i class="ri-calendar-line me-1"></i>{$dateStr}
+                        </span>
+                    </div>
+                    HTML;
 
-                            <!-- Header: Due Date -->
-                            <div style="padding:10px 14px 8px;background:' . $headerBg . ';border-bottom:1px solid ' . $headerBorder . ';display:flex;align-items:center;gap:8px;">
-                                <div style="width:28px;height:28px;background:' . $iconBg . ';border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:' . $iconColor . ';flex-shrink:0;">
-                                    <i class="' . $headerIcon . '"></i>
-                                </div>
-                                <div>
-                                    <div style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;">' . $headerLabel . '</div>
-                                    <div style="font-size:0.78rem;font-weight:700;color:' . $headerColor . ';">' . $dueDateFormatted . '</div>
-                                </div>
-                            </div>
+                    // ── Status Invoice ─────────────────────────────────────────────────────────
+                })->addColumn('status_invoice', function ($row) {
+                    $map = [
+                        0 => ['label' => 'Unpaid', 'icon' => 'ri-time-line',            'color' => '#64748b', 'bg' => '#f1f5f9'],
+                        1 => ['label' => 'Paid',   'icon' => 'ri-checkbox-circle-line', 'color' => '#16a34a', 'bg' => '#f0fdf4'],
+                    ];
 
-                            <!-- Countdown Body -->
-                            <div style="padding:10px 14px;display:flex;flex-direction:column;gap:2px;">
-                                <span style="font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;">
-                                    ' . ($isOverdue ? 'Telah Lewat' : 'Sisa Waktu') . '
-                                </span>
-                                <span class="countdown-display invoice-timer"
-                                    style="font-size:0.95rem;font-weight:800;color:' . $timerColor . ';letter-spacing:0.03em;font-variant-numeric:tabular-nums;">
-                                    ' . ($isOverdue ? 'JATUH TEMPO' : 'Calculating...') . '
-                                </span>
-                            </div>
-                        </div>';
+                    $s          = $map[(int) $row->status_invoice] ?? $map[0];
+                    $label      = $s['label'];
+                    $icon       = $s['icon'];
+                    $color      = $s['color'];
+                    $bg         = $s['bg'];
+                    $invoiceId  = $row->invoice_id;
+                    $nomorInv   = $row->nomor_invoice ?? '-';
+                    $csrfToken  = csrf_token();
+                    $payUrl     = route('payInvoice', $invoiceId);
+
+                    $chip = <<<HTML
+                    <span style="display:inline-flex;align-items:center;gap:5px;
+                                background:{$bg};color:{$color};
+                                border:1px solid {$color}30;border-radius:999px;
+                                padding:4px 12px;font-size:0.75rem;font-weight:700;
+                                letter-spacing:0.03em;white-space:nowrap;">
+                        <i class="{$icon}" style="font-size:0.85rem;"></i>
+                        {$label}
+                    </span>
+                    HTML;
+
+                    if ((int) $row->status_invoice === 1) {
+                        return <<<HTML
+                        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start;">
+                            {$chip}
+                        </div>
+                        HTML;
+                    }
+
+                    return <<<HTML
+                    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
+                        {$chip}
+                        <button class="btn-pay-now"
+                            data-id="{$invoiceId}"
+                            data-url="{$payUrl}"
+                            data-token="{$csrfToken}"
+                            data-nomor="{$nomorInv}"
+                            style="display:inline-flex;align-items:center;gap:5px;
+                                background:linear-gradient(135deg,#16a34a,#15803d);
+                                color:#fff;border:none;border-radius:8px;
+                                padding:5px 12px;font-size:0.76rem;font-weight:700;
+                                cursor:pointer;white-space:nowrap;
+                                box-shadow:0 2px 8px #16a34a40;
+                                transition:opacity 0.2s ease;"
+                            onmouseover="this.style.opacity='0.85'"
+                            onmouseout="this.style.opacity='1'">
+                            <i class="ri-secure-payment-line" style="font-size:0.85rem;"></i>
+                            Bayar Sekarang
+                        </button>
+                    </div>
+                    HTML;
                 })
                 ->addColumn('action', function ($row) {
-                    // Helper to prevent crash if route is missing (optional safety)
-                    $showUrl = Route::has('invoice.show') ? route('invoice.show', $row->invoice_id) : '#';
-                    $editUrl = Route::has('invoice.edit') ? route('invoice.edit', $row->invoice_id) : '#';
+                    $showUrl   = Route::has('invoice.show')    ? route('invoice.show',    $row->invoice_id) : '#';
+                    $editUrl   = Route::has('invoice.edit')    ? route('invoice.edit',    $row->invoice_id) : '#';
                     $deleteUrl = Route::has('invoice.destroy') ? route('invoice.destroy', $row->invoice_id) : '#';
 
-                    $user = Auth::user();
+                    $user          = Auth::user();
                     $canEditDelete = $user && $user->role_id !== 2;
 
-                    $editBtn = $canEditDelete ? '
-                    <a href="' . $editUrl . '" class="btn btn-sm btn-icon btn-label-warning" title="Edit">
-                        <i class="ri-pencil-line"></i>
-                    </a>' : '';
+                    $deliveryNo  = $row->delivery->delivery_no;
+                    $namaBarang  = $row->delivery->po->nama_barang;
+                    $noPo        = $row->delivery->po->no_po;
 
-                    $deleteBtn = $canEditDelete ? '
-                    <button type="button" class="btn btn-sm btn-icon btn-label-danger btn-delete-ajax" 
-                        data-url="' . $deleteUrl . '" 
-                        data-po="No delivery ' . $row->delivery->delivery_no . ' yang terkait PO ' . $row->delivery->po->nama_barang . ' (' . $row->delivery->po->no_po . ')" 
-                        title="Delete">
-                        <i class="ri-delete-bin-line"></i>
-                    </button>' : '';
+                    $editItem = $canEditDelete ? <<<HTML
+                        <li>
+                            <a href="{$editUrl}" class="dropdown-item text-warning">
+                                <i class="ri-pencil-line me-2"></i>Edit
+                            </a>
+                        </li>
+                    HTML : '';
 
-                    return '
-                    <div class="d-flex align-items-center gap-2">
-                        <a href="' . $showUrl . '" class="btn btn-sm btn-icon btn-label-info" title="Details">
-                            <i class="ri-eye-line"></i>
-                        </a>
-                        ' . $editBtn . '
-                        ' . $deleteBtn . '
+                    $deleteItem = $canEditDelete ? <<<HTML
+                        <li>
+                            <button type="button"
+                                class="dropdown-item text-danger btn-delete-ajax"
+                                data-url="{$deleteUrl}"
+                                data-po="No delivery {$deliveryNo} yang terkait PO {$namaBarang} ({$noPo})">
+                                <i class="ri-delete-bin-line me-2"></i>Delete
+                            </button>
+                        </li>
+                    HTML : '';
+
+                    return <<<HTML
+                    <div class="dropdown">
+                        <button type="button"
+                            class="btn btn-sm btn-icon btn-label-secondary"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                            <i class="ri-more-2-line"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                            <li>
+                                <a href="{$showUrl}" class="dropdown-item text-info">
+                                    <i class="ri-eye-line me-2"></i>Details
+                                </a>
+                            </li>
+                            {$editItem}
+                            {$deleteItem}
+                        </ul>
                     </div>
-                    ';
+                    HTML;
                 })
-                ->orderColumn('delivery_details', 'delivered_at $1')
-                ->filterColumn('delivery_details', function ($data, $keyword) {
-                    $keyword_lower = strtolower(trim($keyword));
-                    $numericClean  = preg_replace('/[^0-9]/', '', $keyword);
-
-                    // ── Not Delivered — check BEFORE delivered to avoid substring collision
-                    if (
-                        str_contains($keyword_lower, 'dalam perjalanan')  ||
-                        str_contains($keyword_lower, 'belum tiba')        ||
-                        str_contains($keyword_lower, 'belum sampai')      ||
-                        str_contains($keyword_lower, 'on the way')        ||
-                        str_contains($keyword_lower, 'on delivery')       ||
-                        str_contains($keyword_lower, 'dikirim')           ||
-                        str_contains($keyword_lower, 'pengiriman')        ||
-                        str_contains($keyword_lower, 'not delivered')     ||
-                        str_contains($keyword_lower, 'belum diterima')    ||
-                        str_contains($keyword_lower, 'sedang dikirim')
-                    ) {
-                        $data->where('delivered_status', 0);
-                        return;
-                    }
-
-                    // ── Delivered
-                    if (
-                        str_contains($keyword_lower, 'sudah tiba tujuan') ||
-                        str_contains($keyword_lower, 'sudah tiba')        ||
-                        str_contains($keyword_lower, 'sudah sampai')      ||
-                        str_contains($keyword_lower, 'tiba')              ||
-                        str_contains($keyword_lower, 'sampai')            ||
-                        str_contains($keyword_lower, 'delivered')         ||
-                        str_contains($keyword_lower, 'diterima')          ||
-                        str_contains($keyword_lower, 'sudah diterima')    ||
-                        str_contains($keyword_lower, 'selesai')           ||
-                        str_contains($keyword_lower, 'done')
-                    ) {
-                        $data->where('delivered_status', 1);
-                        return;
-                    }
-
-                    // ── Not Invoiced — check BEFORE invoiced to avoid substring collision
-                    if (
-                        str_contains($keyword_lower, 'belum di invoice')  ||
-                        str_contains($keyword_lower, 'belum invoice')     ||
-                        str_contains($keyword_lower, 'belum diinvoice')   ||
-                        str_contains($keyword_lower, 'not invoiced')      ||
-                        str_contains($keyword_lower, 'tidak ada invoice') ||
-                        str_contains($keyword_lower, 'no invoice')        ||
-                        str_contains($keyword_lower, 'belum ditagih')     ||
-                        str_contains($keyword_lower, 'belum tagih')
-                    ) {
-                        $data->where('invoiced_status', 0);
-                        return;
-                    }
-
-                    // ── Invoiced
-                    if (
-                        str_contains($keyword_lower, 'sudah di invoice')  ||
-                        str_contains($keyword_lower, 'sudah invoice')     ||
-                        str_contains($keyword_lower, 'sudah diinvoice')   ||
-                        str_contains($keyword_lower, 'invoiced')          ||
-                        str_contains($keyword_lower, 'ada invoice')       ||
-                        str_contains($keyword_lower, 'telah diinvoice')   ||
-                        str_contains($keyword_lower, 'sudah ditagih')     ||
-                        str_contains($keyword_lower, 'sudah tagih')
-                    ) {
-                        $data->where('invoiced_status', 1);
-                        return;
-                    }
-
-                    $data->where(function ($q) use ($keyword, $numericClean) {
-                        $q->where('delivery_no', 'like', "%{$keyword}%")
-
-                            ->orWhereRaw("CAST(qty_delivered AS CHAR) like ?", ["%{$numericClean}%"])
-                            ->orWhereRaw("CONCAT(qty_delivered, ' Unit') like ?", ["%{$keyword}%"])
-
-                            // ✅ Added non-padded %e variants for "2 Feb 2026" vs "02 Feb 2026"
-                            ->orWhereRaw("DATE_FORMAT(delivered_at, '%d %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(delivered_at, '%e %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(delivered_at, '%d %M %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(delivered_at, '%e %M %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(delivered_at, '%Y-%m-%d') like ?",  ["%{$keyword}%"]);
-                    });
+                ->orderColumn('no_po', 'tbl_po.no_po $1')
+                ->filterColumn('no_po', function ($query, $keyword) {
+                    $query->where('tbl_po.no_po', 'like', "%{$keyword}%");
                 })
-                ->orderColumn('invoice_details', 'tgl_invoice $1')
-                ->filterColumn('invoice_details', function ($data, $keyword) {
-                    $keyword_lower = strtolower(trim($keyword));
-                    $numericClean  = preg_replace('/[^0-9]/', '', $keyword);
+                ->orderColumn('nama_barang', 'tbl_po.nama_barang $1')
+                ->filterColumn('nama_barang', function ($query, $keyword) {
+                    $query->where('tbl_po.nama_barang', 'like', "%{$keyword}%");
+                })
+                ->orderColumn('delivery_no', 'tbl_delivery.delivery_no $1')
+                ->filterColumn('delivery_no', function ($query, $keyword) {
+                    $query->where('tbl_delivery.delivery_no', 'like', "%{$keyword}%");
+                })
+                ->orderColumn('qty_delivered', 'tbl_delivery.qty_delivered $1')
+                ->filterColumn('qty_delivered', function ($query, $keyword) {
+                    $kw = trim($keyword);
 
-                    // ── UNPAID must be checked BEFORE paid to avoid substring collision
-                    if (str_contains($keyword_lower, 'unpaid')) {
-                        $data->where('tbl_invoice.status_invoice', 0);
-                        return;
-                    }
-
-                    if (str_contains($keyword_lower, 'paid')) {
-                        $data->where('tbl_invoice.status_invoice', 1);
-                        return;
-                    }
-
-                    if (str_contains($keyword_lower, 'cancelled')) {
-                        $data->where('tbl_invoice.status_invoice', 2);
-                        return;
-                    }
-
-                    // ── Due Date State
-                    if (str_contains($keyword_lower, 'jatuh tempo hari ini')) {
-                        $data->where('tbl_invoice.status_invoice', 0)
-                            ->whereRaw("DATE(tbl_invoice.due_date) = CURDATE()");
-                        return;
-                    }
-
-                    if (str_contains($keyword_lower, 'overdue')) {
-                        $data->where('tbl_invoice.status_invoice', 0)
-                            ->whereRaw("tbl_invoice.due_date < NOW()");
-                        return;
-                    }
-
-                    if (str_contains($keyword_lower, 'on time')) {
-                        $data->where('tbl_invoice.status_invoice', 0)
-                            ->whereRaw("tbl_invoice.due_date > NOW()");
-                        return;
-                    }
-
-                    $data->where(function ($q) use ($keyword, $numericClean) {
-                        $q->where('tbl_invoice.nomor_invoice', 'like', "%{$keyword}%")
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.tgl_invoice, '%d %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.tgl_invoice, '%e %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.tgl_invoice, '%d %M %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.tgl_invoice, '%e %M %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%d %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%e %b %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%d %M %Y') like ?", ["%{$keyword}%"])
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%e %M %Y') like ?", ["%{$keyword}%"]);
-
-                        if (!empty($numericClean)) {
-                            $q->orWhereRaw("CAST((tbl_delivery.qty_delivered * tbl_po.harga) AS CHAR) like ?", ["%{$numericClean}%"]);
+                    if (preg_match('/dari\s+(\d+(?:\.\d+)?)\s+unit/i', $kw, $m)) {
+                        $query->where('qty', $m[1]);
+                    } elseif (str_contains($keyword, '%') || str_contains($keyword, '-')) {
+                        $clean = preg_replace('/[^0-9.]/', '', $keyword);
+                        if ($clean !== '') {
+                            $query->whereRaw(
+                                'tbl_po.qty > 0 AND ROUND((tbl_delivery.qty_delivered / tbl_po.qty) * 100) LIKE ?',
+                                ["%{$clean}%"]
+                            );
                         }
-                    });
+                        return;
+                    } elseif (is_numeric($kw)) {
+                        $query->where('qty_delivered', (float) $kw);
+                    } else {
+                        $query->where('qty_delivered', 'like', "%{$kw}%");
+                    }
                 })
-                ->orderColumn('due_date_timer', 'tbl_invoice.status_invoice $1')
-                ->filterColumn('due_date_timer', function ($data, $keyword) {
-                    $keyword_lower = strtolower(trim($keyword));
+                ->orderColumn('delivered_status', 'tbl_delivery.delivered_status $1')
+                ->filterColumn('delivered_status', function ($query, $keyword) {
+                    $map = [
+                        'pending'   => 0,
+                        'delivered' => 1,
+                    ];
+                    $kw = strtolower(trim($keyword));
 
-                    // ── Paid / Lunas / Sudah Dibayar
-                    if (
-                        str_contains($keyword_lower, 'paid')          ||
-                        str_contains($keyword_lower, 'lunas')         ||
-                        str_contains($keyword_lower, 'sudah dibayar') ||
-                        str_contains($keyword_lower, 'sudah bayar')   ||
-                        str_contains($keyword_lower, 'telah dibayar') ||
-                        str_contains($keyword_lower, 'telah bayar')   ||
-                        str_contains($keyword_lower, 'terbayar')      ||
-                        str_contains($keyword_lower, 'settled')       ||
-                        str_contains($keyword_lower, 'done')          ||
-                        str_contains($keyword_lower, 'selesai')
-                    ) {
-                        $data->where('tbl_invoice.status_invoice', 1);
+                    if (array_key_exists($kw, $map)) {
+                        $query->where('tbl_delivery.delivered_status', $map[$kw]);
+                    } elseif (is_numeric($kw)) {
+                        $query->where('tbl_delivery.delivered_status', (int) $kw);
+                    } else {
+                        $query->where('tbl_delivery.delivered_status', 'like', "%{$keyword}%");
+                    }
+                })
+                ->orderColumn('tgl_invoice', 'tbl_invoice.tgl_invoice $1')
+                ->filterColumn('tgl_invoice', function ($query, $keyword) {
+                    $lower = strtolower(trim($keyword));
+
+                    if (str_contains($lower, 'belum')) {
+                        $query->whereNull('tbl_invoice.tgl_invoice');
                         return;
                     }
 
-                    // ── Unpaid / Belum Dibayar
                     if (
-                        str_contains($keyword_lower, 'unpaid')          ||
-                        str_contains($keyword_lower, 'belum dibayar')   ||
-                        str_contains($keyword_lower, 'belum bayar')     ||
-                        str_contains($keyword_lower, 'belum lunas')     ||
-                        str_contains($keyword_lower, 'tidak dibayar')   ||
-                        str_contains($keyword_lower, 'tidak terbayar')  ||
-                        str_contains($keyword_lower, 'outstanding')     ||
-                        str_contains($keyword_lower, 'pending')         ||
-                        str_contains($keyword_lower, 'menunggu')        ||
-                        str_contains($keyword_lower, 'belum selesai')
+                        str_contains($lower, 'ago')   ||
+                        str_contains($lower, 'month') ||
+                        str_contains($lower, 'year')  ||
+                        str_contains($lower, 'day')   ||
+                        str_contains($lower, 'hour')  ||
+                        str_contains($lower, 'week')
                     ) {
-                        $data->where('tbl_invoice.status_invoice', 0);
+                        try {
+                            $date = \Carbon\Carbon::parse($keyword);
+                            $query->whereBetween('tbl_invoice.tgl_invoice', [
+                                $date->copy()->subDay()->toDateString(),
+                                $date->copy()->addDay()->toDateString(),
+                            ]);
+                        } catch (\Exception $e) {
+                            // fallback — do nothing
+                        }
                         return;
                     }
 
-                    // ── Tidak Ada Tenggat / Tidak Ditentukan
-                    if (
-                        str_contains($keyword_lower, 'tidak ada tenggat')  ||
-                        str_contains($keyword_lower, 'tidak ditentukan')   ||
-                        str_contains($keyword_lower, 'no due date')        ||
-                        str_contains($keyword_lower, 'tanpa tenggat')      ||
-                        str_contains($keyword_lower, 'tanpa batas waktu')  ||
-                        str_contains($keyword_lower, 'tidak ada batas')    ||
-                        str_contains($keyword_lower, 'belum ditentukan')
-                    ) {
-                        $data->whereNull('tbl_invoice.due_date');
-                        return;
-                    }
-
-                    // ── Telah Lewat / Overdue / Jatuh Tempo
-                    if (
-                        str_contains($keyword_lower, 'telah lewat')     ||
-                        str_contains($keyword_lower, 'sudah lewat')     ||
-                        str_contains($keyword_lower, 'overdue')         ||
-                        str_contains($keyword_lower, 'jatuh tempo')     ||
-                        str_contains($keyword_lower, 'terlambat')       ||
-                        str_contains($keyword_lower, 'telat')           ||
-                        str_contains($keyword_lower, 'melewati batas')  ||
-                        str_contains($keyword_lower, 'lewat batas')     ||
-                        str_contains($keyword_lower, 'past due')
-                    ) {
-                        $data->where('tbl_invoice.status_invoice', 0)
-                            ->whereNotNull('tbl_invoice.due_date')
-                            ->whereRaw("tbl_invoice.due_date < NOW()");
-                        return;
-                    }
-
-                    // ── Sisa Waktu / Belum Jatuh Tempo
-                    if (
-                        str_contains($keyword_lower, 'sisa waktu')         ||
-                        str_contains($keyword_lower, 'belum jatuh tempo')  ||
-                        str_contains($keyword_lower, 'masih berlaku')      ||
-                        str_contains($keyword_lower, 'masih ada waktu')    ||
-                        str_contains($keyword_lower, 'on time')            ||
-                        str_contains($keyword_lower, 'dalam batas')        ||
-                        str_contains($keyword_lower, 'tepat waktu')
-                    ) {
-                        $data->where('tbl_invoice.status_invoice', 0)
-                            ->whereNotNull('tbl_invoice.due_date')
-                            ->whereRaw("tbl_invoice.due_date >= NOW()");
-                        return;
-                    }
-
-                    // ── Date search — "02 Feb 2026", "2 February 2026", "2026-02-02"
-                    $parsedDate = null;
+                    // "02 Feb 2026" or any parseable date
                     try {
-                        $parsedDate = \Carbon\Carbon::parse($keyword)->format('Y-m-d');
+                        $date = \Carbon\Carbon::createFromFormat('d M Y', trim($keyword));
+                        $query->whereDate('tbl_invoice.tgl_invoice', $date->toDateString());
                     } catch (\Exception $e) {
-                        $parsedDate = null;
+                        try {
+                            $date = \Carbon\Carbon::parse($keyword);
+                            $query->whereDate('tbl_invoice.tgl_invoice', $date->toDateString());
+                        } catch (\Exception $e2) {
+                            $query->whereRaw(
+                                "DATE_FORMAT(tbl_invoice.tgl_invoice, '%d %b %Y') LIKE ?",
+                                ["%{$keyword}%"]
+                            );
+                        }
+                    }
+                })
+                ->orderColumn('due_date', 'tbl_invoice.due_date $1')
+                ->filterColumn('due_date', function ($query, $keyword) {
+                    $lower = strtolower(trim($keyword));
+
+                    // "11 hari 12 jam lagi" → future relative date
+                    if (str_contains($lower, 'lagi')) {
+                        $years  = 0;
+                        $months = 0;
+                        $days   = 0;
+                        $hours  = 0;
+                        if (preg_match('/(\d+)\s*tahun/', $lower, $m)) $years  = (int) $m[1];
+                        if (preg_match('/(\d+)\s*bulan/', $lower, $m)) $months = (int) $m[1];
+                        if (preg_match('/(\d+)\s*hari/',  $lower, $m)) $days   = (int) $m[1];
+                        if (preg_match('/(\d+)\s*jam/',   $lower, $m)) $hours  = (int) $m[1];
+                        $date = \Carbon\Carbon::now()
+                            ->addYears($years)
+                            ->addMonths($months)
+                            ->addDays($days)
+                            ->addHours($hours);
+                        $query->whereBetween('tbl_invoice.due_date', [
+                            $date->copy()->subDay()->toDateString(),
+                            $date->copy()->addDay()->toDateString(),
+                        ]);
+                        return;
                     }
 
-                    $data->where(function ($q) use ($keyword, $parsedDate) {
-                        // "02 Feb 2026" — zero-padded + short month
-                        $q->whereRaw("DATE_FORMAT(tbl_invoice.due_date, '%d %b %Y') like ?", ["%{$keyword}%"])
-                            // "2 Feb 2026" — non-padded + short month
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%e %b %Y') like ?", ["%{$keyword}%"])
-                            // "02 February 2026" — zero-padded + full month
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%d %M %Y') like ?", ["%{$keyword}%"])
-                            // "2 February 2026" — non-padded + full month
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%e %M %Y') like ?", ["%{$keyword}%"])
-                            // "2026-02-02" — ISO format
-                            ->orWhereRaw("DATE_FORMAT(tbl_invoice.due_date, '%Y-%m-%d') like ?", ["%{$keyword}%"]);
+                    // "7 bulan 23 hari 8 jam yang lalu" → extract relative and compute date range
+                    if (
+                        str_contains($lower, 'yang lalu') ||
+                        str_contains($lower, 'tahun')     ||
+                        str_contains($lower, 'bulan')     ||
+                        str_contains($lower, 'hari')      ||
+                        str_contains($lower, 'jam')
+                    ) {
+                        // extract numbers with their unit and reconstruct a Carbon date
+                        $years  = 0;
+                        $months = 0;
+                        $days = 0;
+                        $hours = 0;
+                        if (preg_match('/(\d+)\s*tahun/', $lower, $m))  $years  = (int) $m[1];
+                        if (preg_match('/(\d+)\s*bulan/', $lower, $m))  $months = (int) $m[1];
+                        if (preg_match('/(\d+)\s*hari/',  $lower, $m))  $days   = (int) $m[1];
+                        if (preg_match('/(\d+)\s*jam/',   $lower, $m))  $hours  = (int) $m[1];
 
-                        // Carbon-parsed exact date match
-                        if ($parsedDate) {
-                            $q->orWhereRaw("DATE(tbl_invoice.due_date) = ?", [$parsedDate]);
+                        $date = \Carbon\Carbon::now()
+                            ->subYears($years)
+                            ->subMonths($months)
+                            ->subDays($days)
+                            ->subHours($hours);
+
+                        // search within ±1 day tolerance
+                        $query->whereBetween('tbl_invoice.due_date', [
+                            $date->copy()->subDay()->toDateString(),
+                            $date->copy()->addDay()->toDateString(),
+                        ]);
+                        return;
+                    }
+
+                    // "23 Jul 2025" or any parseable date
+                    try {
+                        $date = \Carbon\Carbon::createFromFormat('d M Y', trim($keyword));
+                        $query->whereDate('tbl_invoice.due_date', $date->toDateString());
+                    } catch (\Exception $e) {
+                        try {
+                            $date = \Carbon\Carbon::parse($keyword);
+                            $query->whereDate('tbl_invoice.due_date', $date->toDateString());
+                        } catch (\Exception $e2) {
+                            $query->whereRaw(
+                                "DATE_FORMAT(tbl_invoice.due_date, '%d %b %Y') LIKE ?",
+                                ["%{$keyword}%"]
+                            );
                         }
-                    });
+                    }
                 })
-                ->rawColumns(['invoice_details', 'delivery_details', 'due_date_timer', 'action'])
+                ->orderColumn('status_invoice', 'tbl_invoice.status_invoice $1')
+                ->filterColumn('status_invoice', function ($query, $keyword) {
+                    $map = [
+                        'unpaid'    => 0,
+                        'paid'      => 1,
+                        'cancelled' => 2,
+                    ];
+                    $kw = strtolower(trim($keyword));
+
+                    if (array_key_exists($kw, $map)) {
+                        $query->where('tbl_invoice.status_invoice', $map[$kw]);
+                    } elseif (is_numeric($kw)) {
+                        $query->where('tbl_invoice.status_invoice', (int) $kw);
+                    } else {
+                        $query->where('tbl_invoice.status_invoice', 'like', "%{$keyword}%");
+                    }
+                })
+                ->orderColumn('nomor_invoice', 'tbl_invoice.nomor_invoice $1')
+                ->filterColumn('nomor_invoice', function ($query, $keyword) {
+                    $query->where('tbl_invoice.nomor_invoice', 'like', "%{$keyword}%");
+                })
+                ->rawColumns(['no_po', 'nama_barang', 'delivery_no', 'action', 'qty_delivered', 'delivered_status', 'nomor_invoice', 'tgl_invoice', 'due_date', 'status_invoice',])
                 ->make(true);
         }
 
@@ -1122,5 +777,36 @@ class InvoiceController extends Controller
         ])->findOrFail($invoice_id);
 
         return view('invoice-show', compact('invoice'));
+    }
+    public function payInvoice($id)
+    {
+        $invoice = Invoice::with('delivery.po')->findOrFail($id);
+
+        $delivery = $invoice->delivery;
+        $po = $delivery->po;
+
+        $amount = $po->harga * $delivery->qty_delivered;
+        $now = now()->toDateString();
+
+        // Create new Payment
+        Payment::create([
+            'invoice_id'              => $invoice->invoice_id,
+            'payment_date'            => $now,
+            'amount'                  => $amount,
+            'metode_bayar'            => 'Tidak Ada',
+            'bukti_bayar'             => 'Tidak Ada',
+            'description'             => Auth::user()->user_name . ' membayar Invoice dari dashboard',
+            'payment_date_estimation' => $now,
+            'payment_status'          => 1,
+        ]);
+
+        // Set invoice status to paid
+        $invoice->status_invoice = 1;
+        $invoice->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Invoice berhasil ditandai sebagai lunas.',
+        ]);
     }
 }

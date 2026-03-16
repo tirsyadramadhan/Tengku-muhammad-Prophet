@@ -4,24 +4,24 @@ $defaultAvatar = public_path('defaults/default-avatar.jpg');
 $picturePath = Auth::user()->profile_picture
 ? public_path(Auth::user()->profile_picture)
 : $defaultAvatar;
-
 $profilePic = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($picturePath));
+$authUser = Auth::user();
 @endphp
 
-<!--  Brand demo (display only for navbar-full and hide on below xl) -->
+{{-- Brand --}}
 @if(isset($navbarFull))
 <div class="navbar-brand app-brand demo d-none d-xl-flex py-0 me-6">
-    <a href="{{url('/')}}" class="app-brand-link gap-2">
+    <a href="{{ url('/') }}" class="app-brand-link gap-2">
         <span class="app-brand-logo demo">@include('_partials.macros')</span>
-        <span class="app-brand-text demo menu-text fw-bold">{{config('variables.templateName')}}</span>
+        <span class="app-brand-text demo menu-text fw-bold">{{ config('variables.templateName') }}</span>
     </a>
 </div>
 @endif
 
-<!-- ! Not required for layout-without-menu -->
+{{-- Sidebar Toggle --}}
 @if(!isset($navbarHideToggle))
-<div class="layout-menu-toggle navbar-nav align-items-xl-center me-4 me-xl-0 {{ isset($contentNavbar) ? ' d-xl-none ' : '' }}">
-    <a class="nav-item nav-link px-0 me-xl-6" href="javascript:void(0)">
+<div class="layout-menu-toggle navbar-nav align-items-xl-center me-4 me-xl-0 ms-4">
+    <a id="sidebar-toggle" class="nav-item nav-link px-0 me-xl-6 cursor-pointer">
         <i class="icon-base ri ri-menu-line icon-md"></i>
     </a>
 </div>
@@ -29,45 +29,110 @@ $profilePic = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($pictu
 
 <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
     <ul class="navbar-nav flex-row align-items-center ms-auto">
-        <!-- User -->
+
+        {{-- ── User Dropdown ──────────────────────────────── --}}
         <li class="nav-item navbar-dropdown dropdown-user dropdown">
-            <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown">
+
+            {{-- Trigger --}}
+            <a class="nav-link dropdown-toggle hide-arrow p-0"
+                href="javascript:void(0);"
+                data-bs-toggle="dropdown"
+                data-bs-offset="0,8"
+                aria-expanded="false">
                 <div class="avatar avatar-online">
-                    <img src="{{ $profilePic }}" alt="alt" class="rounded-circle" />
+                    <img src="{{ $profilePic }}"
+                        alt="{{ $authUser->user_name }}"
+                        class="rounded-circle object-fit-cover"
+                        width="38" height="38">
                 </div>
             </a>
-            <ul class="dropdown-menu dropdown-menu-end">
+
+            {{-- Dropdown Menu --}}
+            <ul class="dropdown-menu dropdown-menu-end shadow" style="min-width:240px;">
+
+                {{-- User Info Header --}}
                 <li>
-                    <a class="dropdown-item" href="javascript:void(0);">
-                        <div class="d-flex">
-                            <div class="flex-shrink-0 me-3">
-                                <div class="avatar avatar-online">
-                                    <img src="{{ $profilePic }}" alt="alt" class="w-px-40 h-auto rounded-circle" />
-                                </div>
+                    <div class="dropdown-item pe-none py-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="avatar avatar-online flex-shrink-0">
+                                <img src="{{ $profilePic }}"
+                                    alt="{{ $authUser->user_name }}"
+                                    class="rounded-circle object-fit-cover"
+                                    width="42" height="42">
                             </div>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-0">{{ Auth::user()->user_name }}</h6>
-                                <small class="text-body-secondary">{{ Auth::user()->role->role_name }}</small>
+                            <div class="overflow-hidden">
+                                <h6 class="mb-0 fw-bold text-truncate">
+                                    {{ $authUser->user_name }}
+                                </h6>
+                                <small class="text-muted d-flex align-items-center gap-1">
+                                    <i class="ri-shield-user-line"></i>
+                                    {{ $authUser->role->role_name }}
+                                </small>
                             </div>
+                            @if($authUser->is_active == 1)
+                            <span class="badge bg-success rounded-pill ms-auto flex-shrink-0">Aktif</span>
+                            @else
+                            <span class="badge bg-danger rounded-pill ms-auto flex-shrink-0">Nonaktif</span>
+                            @endif
                         </div>
-                    </a>
+                    </div>
                 </li>
+
                 <li>
-                    <div class="dropdown-divider my-1"></div>
+                    <hr class="dropdown-divider my-1">
                 </li>
+
+                {{-- Email Row --}}
                 <li>
-                    <a class="dropdown-item" href="{{ route('users.profile', Auth::id()) }}">
-                        <i class="icon-base ri ri-user-3-line icon-md me-3"></i>
-                        <span>My Profile</span>
+                    <div class="dropdown-item pe-none py-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="ri-mail-line text-muted fs-6 flex-shrink-0"></i>
+                            <small class="text-muted text-truncate">{{ $authUser->email }}</small>
+                        </div>
+                    </div>
+                </li>
+
+                {{-- Last Login Row --}}
+                @if($authUser->last_login)
+                <li>
+                    <div class="dropdown-item pe-none py-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="ri-time-line text-muted fs-6 flex-shrink-0"></i>
+                            <small class="text-muted">
+                                Login: {{ \Carbon\Carbon::parse($authUser->last_login)->format('d M Y, H:i') }}
+                            </small>
+                        </div>
+                    </div>
+                </li>
+                @endif
+
+                <li>
+                    <hr class="dropdown-divider my-1">
+                </li>
+
+                {{-- My Profile --}}
+                <li>
+                    <a class="dropdown-item d-flex align-items-center gap-3 py-2"
+                        href="{{ route('users.profile', Auth::id()) }}">
+                        <div class="avatar avatar-xs flex-shrink-0">
+                            <span class="avatar-initial rounded-circle bg-label-primary">
+                                <i class="ri-user-3-line small"></i>
+                            </span>
+                        </div>
+                        <div>
+                            <p class="mb-0 fw-medium small">My Profile</p>
+                            <small class="text-muted">Lihat & edit profil</small>
+                        </div>
                     </a>
                 </li>
 
                 <li>
-                    <div class="dropdown-divider my-1"></div>
+                    <hr class="dropdown-divider my-1">
                 </li>
+
+                {{-- Logout --}}
                 <li>
-                    <div class="d-grid px-4 pt-2 pb-1">
-                        {{-- Hidden POST form targeting /logout --}}
+                    <div class="px-3 pt-1 pb-2">
                         <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">
                             @csrf
                         </form>
@@ -78,8 +143,10 @@ $profilePic = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($pictu
                         </a>
                     </div>
                 </li>
+
             </ul>
         </li>
-        <!--/ User -->
+        {{-- ── /User Dropdown ─────────────────────────────── --}}
+
     </ul>
 </div>

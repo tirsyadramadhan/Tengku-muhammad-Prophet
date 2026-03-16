@@ -8,7 +8,7 @@
         <h5 class="mb-0">Buat Purchase Order Masuk</h5>
       </div>
       <div class="card-body">
-        <form id="incomingPoForm" action="{{ route('incoming-po.store') }}" method="POST">
+        <form id="incomingPoForm" action="{{ route('incoming-po.store') }}" method="POST" novalidate autocomplete="off">
           <div class="mb-4">
             <label class="form-label fw-bold">Pelanggan <span class="text-danger">*</span></label>
             <select name="customer_id" id="customer_id" class="form-select select2 live-validate" required>

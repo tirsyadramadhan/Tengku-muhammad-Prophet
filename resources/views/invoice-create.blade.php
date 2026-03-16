@@ -8,7 +8,7 @@
         <h5 class="mb-0">Buat Invoice Baru</h5>
     </div>
     <div class="card-body">
-        <form id="invoiceForm" action="{{ route('invoice.store') }}" method="POST">
+        <form id="invoiceForm" action="{{ route('invoice.store') }}" method="POST" novalidate autocomplete="off">
             <div class="row">
                 <!-- Pilih Pengiriman (Select2) -->
                 <div class="col-md-6 mb-3">

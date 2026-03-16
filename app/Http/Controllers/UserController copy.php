@@ -30,14 +30,17 @@ class UserController extends Controller
 
             return DataTables::of($data)
                 ->addIndexColumn()
+                ->addColumn('user_name', fn($row) => $row->user_name ?? '-')
                 ->orderColumn('user_name', fn($q, $o) => $q->orderBy('tbl_user.user_name', $o))
                 ->filterColumn('user_name', fn($q, $k) => $q->where('tbl_user.user_name', 'like', "%{$k}%"))
+                ->addColumn('email', fn($row) => $row->email ?? '-')
                 ->orderColumn('email', fn($q, $o) => $q->orderBy('tbl_user.email', $o))
                 ->filterColumn('email', fn($q, $k) => $q->where('tbl_user.email', 'like', "%{$k}%"))
+                ->addColumn('role_name', fn($row) => $row->role_name ?? '-')
                 ->orderColumn('role_name', fn($q, $o) => $q->orderBy('tbl_role.role_name', $o))
                 ->filterColumn('role_name', function ($q, $k) {
                     if ($k !== '') {
-                        $q->where('tbl_user.role_id', $k);
+                        $q->where('tbl_user.role_id', $k); // match by role_id, not name
                     }
                 })
                 ->addColumn('is_active', function ($row) {
@@ -47,8 +50,15 @@ class UserController extends Controller
                 })
                 ->orderColumn('is_active', fn($q, $o) => $q->orderBy('tbl_user.is_active', $o))
                 ->filterColumn('is_active', function ($q, $k) {
-                    if ($k !== '') {
-                        $q->where('tbl_user.is_active', $k);
+                    $val = match (strtolower(trim($k))) {
+                        'aktif'     => 1,
+                        'nonaktif'  => 0,
+                        default     => null,
+                    };
+                    if (!is_null($val)) {
+                        $q->where('tbl_user.is_active', $val);
+                    } else {
+                        $q->whereRaw('CAST(tbl_user.is_active AS CHAR) LIKE ?', ["%{$k}%"]);
                     }
                 })
                 ->addColumn('last_login', function ($row) {
@@ -58,8 +68,10 @@ class UserController extends Controller
                 })
                 ->orderColumn('last_login', fn($q, $o) => $q->orderBy('tbl_user.last_login', $o))
                 ->filterColumn('last_login', function ($q, $k) {
-                    if ($k) {
-                        $q->whereDate('tbl_user.last_login', $k);
+                    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($k))) {
+                        $q->whereDate('tbl_user.last_login', trim($k));
+                    } else {
+                        $q->where('tbl_user.last_login', 'like', "%{$k}%");
                     }
                 })
                 ->addColumn('actions', function ($row) {
@@ -108,7 +120,6 @@ class UserController extends Controller
                     </div>
                     HTML;
                 })
-
                 ->rawColumns(['is_active', 'last_login', 'actions'])
                 ->make(true);
         }

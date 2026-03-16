@@ -25,10 +25,6 @@
 <body>
     @yield('layoutContent')
 
-    {{-- All scripts at bottom of body --}}
-    <script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit" async defer></script>
-    <script async defer src="https://buttons.github.io/buttons.js"></script>
-
     @vite([
     'resources/assets/vendor/js/helpers.js',
     'resources/assets/js/config.js',
@@ -37,6 +33,10 @@
     'resources/assets/vendor/js/menu.js',
     'resources/assets/js/main.js'
     ])
+
+    {{-- All scripts at bottom of body --}}
+    <script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit" async defer></script>
+    <script async defer src="https://buttons.github.io/buttons.js"></script>
 
     @yield('vendor-script')
     @yield('page-script')

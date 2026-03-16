@@ -1,0 +1,926 @@
+i'm using laravel 12 + Yajra DataTables. i want you to add addColumn, orderColumn, filterColumn methods for each column
+
+tables:
+tbl_user
+tbl_role
+
+columns for tbl_role:
+`role_id` bigint NOT NULL AUTO_INCREMENT,
+`role_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+`input_by` bigint DEFAULT NULL,
+`input_date` datetime DEFAULT CURRENT_TIMESTAMP,
+`edit_by` bigint DEFAULT NULL,
+`edit_date` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+PRIMARY KEY (`role_id`)
+
+Columns for tbl_user:
+`user_id` bigint NOT NULL AUTO_INCREMENT,
+`role_id` bigint NOT NULL,
+`user_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+`email` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+`password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+`last_login` datetime DEFAULT NULL,
+`is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1: Active, 0: Suspended',
+`profile_picture` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+PRIMARY KEY (`user_id`),
+UNIQUE KEY `uk_user_name` (`user_name`),
+UNIQUE KEY `uk_user_email` (`email`),
+KEY `idx_user_role` (`role_id`),
+CONSTRAINT `fk_user_role` FOREIGN KEY (`role_id`) REFERENCES `tbl_role` (`role_id`) ON DELETE RESTRICT
+
+tbl_user to tbl_role relationship:
+public function role()
+{
+    return $this->belongsTo(Role::class, 'role_id', 'role_id');
+}
+
+notes:
+only create addColumn, orderColumn, filterColumn for tbl_user
+order by last_login
+each column must be perfectly designed
+
+
+keywords:
+just like the columns
+
+how do i call SummaryDataTable from SummaryController and send it to the view
+
+class SummaryController extends Controller
+{
+    public function index()
+    {
+        return view('summary');
+    }
+}
+
+only use normal model call i want Summary to be called and only the first data to be retrieved for example Summary::first()
+do not use builder as it doesn't show any data inside the table
+
+the current code:
+public function query(Summary $model): Builder
+{
+    return $model
+        ->newQuery()
+        ->join('tbl_investasi', 'summary.investasi_id', '=', 'tbl_investasi.id_investasi')
+        ->select([
+            'summary.*',
+            'tbl_investasi.tgl_investasi',
+        ])
+        ->orderBy('tbl_investasi.tgl_investasi', 'asc');
+}
+
+is there any problem with this datatables definition? i recently removed Builder class from each column
+
+$summary = Summary::first()->query();
+$table = DataTables::of($summary)
+    ->addIndexColumn()
+    ->addColumn('tgl_investasi', function (Summary $row) {
+        return $row->investasi?->tgl_investasi
+            ? Carbon::parse($row->investasi->tgl_investasi)->translatedFormat('d M Y')
+            : '-';
+    })
+    ->orderColumn('tgl_investasi', function ($query, string $order) {
+        $query->orderBy('tbl_investasi.tgl_investasi', $order);
+    })
+    ->filterColumn('tgl_investasi', function ($query, string $keyword) {
+        if ($keyword) {
+            $query->whereDate('tbl_investasi.tgl_investasi', $keyword);
+        }
+    })
+    ->addColumn('dana_tersedia', function (Summary $row) {
+        return self::rupiah($row->dana_tersedia);
+    })
+    ->orderColumn('dana_tersedia', function ($query, string $order) {
+        $query->orderBy('summary.dana_tersedia', $order);
+    })
+    ->filterColumn('dana_tersedia', function ($query, string $keyword) {
+        self::filterDecimal($query, 'summary.dana_tersedia', $keyword);
+    })
+    ->addColumn('investasi_dikembalikan', function (Summary $row) {
+        return self::rupiah($row->investasi_dikembalikan);
+    })
+    ->orderColumn('investasi_dikembalikan', function ($query, string $order) {
+        $query->orderBy('summary.investasi_dikembalikan', $order);
+    })
+    ->filterColumn('investasi_dikembalikan', function ($query, string $keyword) {
+        self::filterDecimal($query, 'summary.investasi_dikembalikan', $keyword);
+    })
+    ->addColumn('investasi_tambahan', function (Summary $row) {
+        return self::rupiah($row->investasi_tambahan);
+    })
+    ->orderColumn('investasi_tambahan', function ($query, string $order) {
+        $query->orderBy('summary.investasi_tambahan', $order);
+    })
+    ->filterColumn('investasi_tambahan', function ($query, string $keyword) {
+        self::filterDecimal($query, 'summary.investasi_tambahan', $keyword);
+    })
+    ->addColumn('investasi_ditahan', function (Summary $row) {
+        return self::rupiah($row->investasi_ditahan);
+    })
+    ->orderColumn('investasi_ditahan', function ($query, string $order) {
+        $query->orderBy('summary.investasi_ditahan', $order);
+    })
+    ->filterColumn('investasi_ditahan', function ($query, string $keyword) {
+        self::filterDecimal($query, 'summary.investasi_ditahan', $keyword);
+    })
+    ->addColumn('total_investasi_transfer', function (Summary $row) {
+        return self::rupiah($row->total_investasi_transfer);
+    })
+    ->orderColumn('total_investasi_transfer', function ($query, string $order) {
+        $query->orderBy('summary.total_investasi_transfer', $order);
+    })
+    ->filterColumn('total_investasi_transfer', function ($query, string $keyword) {
+        self::filterDecimal($query, 'summary.total_investasi_transfer', $keyword);
+    })
+    ->addColumn('total_transfer_investasi', function (Summary $row) {
+        return self::rupiah($row->total_transfer_investasi);
+    })
+    ->orderColumn('total_transfer_investasi', function ($query, string $order) {
+        $query->orderBy('summary.total_transfer_investasi', $order);
+    })
+    ->filterColumn('total_transfer_investasi', function ($query, string $keyword) {
+        self::filterDecimal($query, 'summary.total_transfer_investasi', $keyword);
+    })
+    ->addColumn('margin_diterima', function (Summary $row) {
+        return self::rupiah($row->margin_diterima);
+    })
+    ->orderColumn('margin_diterima', function ($query, string $order) {
+        $query->orderBy('summary.margin_diterima', $order);
+    })
+    ->filterColumn('margin_diterima', function ($query, string $keyword) {
+        self::filterDecimal($query, 'summary.margin_diterima', $keyword);
+    })
+    ->addColumn('margin_tersedia', function (Summary $row) {
+        return self::rupiah($row->margin_tersedia);
+    })
+    ->orderColumn('margin_tersedia', function ($query, string $order) {
+        $query->orderBy('summary.margin_tersedia', $order);
+    })
+    ->filterColumn('margin_tersedia', function ($query, string $keyword) {
+        self::filterDecimal($query, 'summary.margin_tersedia', $keyword);
+    })
+    ->addColumn('margin_ditahan', function (Summary $row) {
+        return self::rupiah($row->margin_ditahan);
+    })
+    ->orderColumn('margin_ditahan', function ($query, string $order) {
+        $query->orderBy('summary.margin_ditahan', $order);
+    })
+    ->filterColumn('margin_ditahan', function ($query, string $keyword) {
+        self::filterDecimal($query, 'summary.margin_ditahan', $keyword);
+    })
+    ->addColumn('total_margin', function (Summary $row) {
+        return self::rupiah($row->total_margin);
+    })
+    ->orderColumn('total_margin', function ($query, string $order) {
+        $query->orderBy('summary.total_margin', $order);
+    })
+    ->filterColumn('total_margin', function ($query, string $keyword) {
+        self::filterDecimal($query, 'summary.total_margin', $keyword);
+    })
+    ->addColumn('sisa_margin', function (Summary $row) {
+        return self::rupiah($row->sisa_margin);
+    })
+    ->orderColumn('sisa_margin', function ($query, string $order) {
+        $query->orderBy('summary.sisa_margin', $order);
+    })
+    ->filterColumn('sisa_margin', function ($query, string $keyword) {
+        self::filterDecimal($query, 'summary.sisa_margin', $keyword);
+    });
+
+
+the code gives an error saying Incorrect integer value: '{"id_investasi":1}' for column 'investasi_id'
+
+$investasi = Investasi::create([
+    'tgl_investasi'    => Carbon::now(),
+    'modal_setor_awal' => $valSetor,
+    'modal_po_baru'    => $valPoBaru,
+    'margin'     => $valMargin,
+    'pencairan_modal'  => $pencairan,
+    'margin_cair'        => $margin_cair,
+    'pengembalian_dana'        => $pengembalian_dana,
+    'dana_tersedia'    => $danaTersedia,
+]);
+
+'investasi_id' => $investasi->first(['id_investasi']),
+
+convert any searchbar that should've been a date into an input with the type date and use moment.js date input
+make the design of each searchbar as perfect as possible
+only use bootstrap 5 to redesign each searchbar
+do not add any CSS, JS and HTML
+
+<tr class="column-search-row">
+    <th></th>
+    <th>
+        <input type="text" id="search-modal_setor_awal"
+            class="form-control form-control-sm" 
+            placeholder="Cari modal setor / margin tersedia / dana tersedia"
+            style="min-width:180px;">
+    </th>
+    <th>
+        <input type="text" id="search-modal_po_baru"
+            class="form-control form-control-sm" 
+            placeholder="Cari modal setor / margin tersedia / dana tersedia"
+            style="min-width:180px;">
+    </th>
+    <th>
+        <input type="text" id="search-margin"
+            class="form-control form-control-sm" 
+            placeholder="Cari modal setor / margin tersedia / dana tersedia"
+            style="min-width:180px;">
+    </th>
+    <th>
+        <input type="text" id="search-pencairan_modal"
+            class="form-control form-control-sm" 
+            placeholder="Cari modal setor / margin tersedia / dana tersedia"
+            style="min-width:180px;">
+    </th>
+    <th>
+        <input type="text" id="search-margin_cair"
+            class="form-control form-control-sm" 
+            placeholder="Cari modal setor / margin tersedia / dana tersedia"
+            style="min-width:180px;">
+    </th>
+    <th>
+        <input type="text" id="search-pengembalian_dana"
+            class="form-control form-control-sm" 
+            placeholder="Cari modal setor / margin tersedia / dana tersedia"
+            style="min-width:180px;">
+    </th>
+    <th>
+        <input type="text" id="search-dana_tersedia"
+            class="form-control form-control-sm" 
+            placeholder="Cari modal setor / margin tersedia / dana tersedia"
+            style="min-width:180px;">
+    </th>
+    <th>
+        <input type="text" id="search-tgl_investasi"
+            class="form-control form-control-sm" 
+            placeholder="Cari modal setor / margin tersedia / dana tersedia"
+            style="min-width:180px;">
+    </th>
+    ${role !== 2 ? '<th></th>' : ''}
+</tr>
+
+this action column needs to be wrapped inside a three dot icon and only shows when the three dot icon is clicked
+i also want the design to be good and fully responsive
+use only bootstrap 5
+do not add any CSS, JS and HTML
+convert the HTML return into heredoc
+
+$showUrl = Route::has('payment.show') ? route('payment.show', $row->payment_id) : '#';
+$editUrl = Route::has('payment.edit') ? route('payment.edit', $row->payment_id) : '#';
+$deleteUrl = Route::has('payment.destroy') ? route('payment.destroy', $row->payment_id) : '#';
+
+$user = Auth::user();
+$canEditDelete = $user && $user->role_id !== 2;
+
+$editBtn = $canEditDelete ? '
+<a href="' . $editUrl . '" class="btn btn-sm btn-icon btn-label-warning" title="Edit">
+    <i class="ri-pencil-line"></i>
+</a>' : '';
+
+$deleteBtn = $canEditDelete ? '
+<button type="button" class="btn btn-sm btn-icon btn-label-danger btn-delete-ajax" 
+    data-url="' . $deleteUrl . '" 
+    data-po="No po ' . $row->no_po . ' Nama Barang ' . $row->nama_barang . '" 
+    title="Delete">
+    <i class="ri-delete-bin-line"></i>
+</button>' : '';
+
+return '
+<div class="d-flex align-items-center gap-2">
+    <a href="' . $showUrl . '" class="btn btn-sm btn-icon btn-label-info" title="Details">
+        <i class="ri-eye-line"></i>
+    </a>
+    ' . $editBtn . '
+    ' . $deleteBtn . '
+</div>
+';
+
+if the status of $po->status is 0 then set the title to Incoming Purchase Order Details
+if the status of $po->status is 1 then set the title to Purchase Order Details
+i want this detail page to be designed as perfectly as possible and fully responsive to all devices (PCs, Laptops, Androids, iOS)
+do not add any CSS, JS
+adding HTML element is allowed
+only use bootstrap 5 classes to redesign the page
+
+PO statuses:
+0: Incoming
+1: Open
+2: Partially Delivered
+3: Fully Delivered
+4: Partially Delivered & Partially Invoiced
+5: Fully Delivered & Partially Invoiced
+6: Partially Delivered & Fully Invoiced
+7: FULLY DELIVERED AND FULLY INVOICED
+8: Closed
+
+PO columns:
+`po_id` bigint NOT NULL AUTO_INCREMENT,
+`customer_id` bigint NOT NULL,
+`input_by` bigint DEFAULT NULL,
+`qty` bigint NOT NULL DEFAULT '0',
+`edit_by` bigint DEFAULT NULL,
+`status` tinyint NOT NULL DEFAULT '0' COMMENT '0: Open, 1: Delivered, 2: Invoiced, 3: Closed',
+`no_po` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Tanpa PO',
+`nama_barang` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+`harga` decimal(15,2) NOT NULL DEFAULT '0.00',
+`total` decimal(15,2) NOT NULL DEFAULT '0.00',
+`modal_awal` decimal(15,2) NOT NULL DEFAULT '0.00',
+`margin` decimal(15,2) NOT NULL DEFAULT '0.00',
+`margin_unit` decimal(15,2) NOT NULL DEFAULT '0.00',
+`tambahan_margin` decimal(20,6) DEFAULT NULL,
+`tgl_po` date NOT NULL,
+`input_date` datetime NOT NULL DEFAULT (now()),
+`edit_date` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+PRIMARY KEY (`po_id`),
+KEY `idx_customer` (`customer_id`),
+KEY `idx_status` (`status`),
+KEY `idx_tgl_po` (`tgl_po`),
+KEY `fk_po_input_user` (`input_by`),
+CONSTRAINT `fk_po_customer` FOREIGN KEY (`customer_id`) REFERENCES `tbl_customer` (`id_cust`) ON DELETE RESTRICT,
+CONSTRAINT `fk_po_input_user` FOREIGN KEY (`input_by`) REFERENCES `tbl_user` (`user_id`) ON DELETE SET NULL
+
+@extends('layouts/contentNavbarLayout')
+
+@section('title', 'Purchase Order Details - #' . $po->no_po)
+
+@section('content')
+<div class="main-container-index">
+  <div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+      <div>
+        <h4 class="fw-bold mb-0">
+          <span class="text-muted fw-light">Purchase Order /</span> {{ $po->no_po }}
+        </h4>
+        <small class="text-body-secondary">Lihat status detail dan riwayat pemenuhan</small>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{{ route('po.edit', $po->po_id) }}" class="btn btn-outline-primary">
+          <i class="ri-pencil-line me-1"></i> Edit PO
+        </a>
+        <button class="btn btn-primary">
+          <i class="ri-printer-line me-1"></i> Cetak
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-xl-8 col-lg-7 col-md-12">
+
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center border-bottom">
+          <h5 class="mb-0 card-title">Informasi Pesanan</h5>
+
+          @php
+          $statusLabels = [
+          0 => ['label' => 'Masuk', 'class' => 'bg-label-primary'],
+          1 => ['label' => 'Terbuka', 'class' => 'bg-label-info'],
+          2 => ['label' => 'Terkirim Sebagian', 'class' => 'bg-label-warning'],
+          3 => ['label' => 'Terkirim Penuh', 'class' => 'bg-label-success'],
+          4 => ['label' => 'Terkirim Sebagian & Ditagih', 'class' => 'bg-label-warning'],
+          5 => ['label' => 'Terkirim Penuh & Ditagih Sebagian', 'class' => 'bg-label-info'],
+          6 => ['label' => 'Terkirim Sebagian & Ditagih Penuh', 'class' => 'bg-label-info'],
+          7 => ['label' => 'Ditutup', 'class' => 'bg-label-secondary'],
+          ];
+          $currentStatus = $statusLabels[$po->status] ?? ['label' => 'Tidak Diketahui', 'class' => 'bg-label-dark'];
+          @endphp
+          <span class="badge {{ $currentStatus['class'] }} rounded-pill">{{ $currentStatus['label'] }}</span>
+        </div>
+
+        <div class="card-body pt-4">
+          <div class="row g-4">
+            <div class="col-md-6 col-12">
+              <div class="d-flex align-items-start">
+                <div class="avatar avatar-md me-3">
+                  <span class="avatar-initial rounded bg-label-primary">
+                    <i class="ri-shopping-bag-3-line fs-4"></i>
+                  </span>
+                </div>
+                <div>
+                  <h6 class="mb-1 text-heading">{{ $po->nama_barang }}</h6>
+                  <p class="mb-0 text-body-secondary">Total Kuantitas: <strong>{{ number_format($po->qty) }} Unit</strong></p>
+                  <small class="text-muted">Harga per unit: {{ number_format($po->harga, 2) }}</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-6 col-12">
+              <div class="d-flex align-items-start">
+                <div class="avatar avatar-md me-3">
+                  <span class="avatar-initial rounded bg-label-success">
+                    <i class="ri-money-dollar-circle-line fs-4"></i>
+                  </span>
+                </div>
+                <div>
+                  <h6 class="mb-1 text-heading">Total Nilai</h6>
+                  <h5 class="mb-0 text-success">{{ number_format($po->total, 2) }}</h5>
+                  <small class="text-muted">Estimasi Margin: {{ number_format($po->margin, 2) }}</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4">
+
+          @php
+          $totalDelivered = $po->deliveries->sum('qty_delivered');
+          $percent = $po->qty > 0 ? ($totalDelivered / $po->qty) * 100 : 0;
+          $progressColor = $percent >= 100 ? 'bg-success' : 'bg-primary';
+          @endphp
+
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-medium text-heading">Progres Pemenuhan</span>
+            <span class="fw-medium {{ $percent >= 100 ? 'text-success' : 'text-primary' }}">
+              {{ number_format($percent) }}% ({{ number_format($totalDelivered) }}/{{ number_format($po->qty) }})
+            </span>
+          </div>
+          <div class="progress" style="height: 10px;">
+            <div class="progress-bar {{ $progressColor }} progress-bar-striped progress-bar-animated"
+              role="progressbar"
+              style="width: {{ $percent }}%"
+              aria-valuenow="{{ $percent }}"
+              aria-valuemin="0"
+              aria-valuemax="100">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h5 class="mb-3">Riwayat Pengiriman</h5>
+
+      @if($po->deliveries->isEmpty())
+      <div class="card">
+        <div class="card-body text-center py-5">
+          <div class="avatar avatar-xl bg-label-secondary mx-auto mb-3">
+            <span class="avatar-initial rounded-circle">
+              <i class="ri-truck-line fs-3"></i>
+            </span>
+          </div>
+          <h6 class="text-muted mb-3">Belum ada pengiriman yang tercatat.</h6>
+          <a href="{{ route('delivery.create') }}" class="btn btn-primary">
+            <i class="ri-add-line me-1"></i> Buat Pengiriman Pertama
+          </a>
+        </div>
+      </div>
+      @else
+      <div class="accordion" id="deliveryAccordion">
+        @foreach($po->deliveries as $index => $delivery)
+        <div class="card accordion-item {{ $index > 0 ? 'mt-3' : '' }} border active">
+          <h2 class="accordion-header" id="heading{{ $delivery->delivery_id }}">
+            <button class="accordion-button {{ $index !== 0 ? 'collapsed' : '' }}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ $delivery->delivery_id }}" aria-expanded="{{ $index === 0 ? 'true' : 'false' }}" aria-controls="collapse{{ $delivery->delivery_id }}">
+              <div class="d-flex align-items-center w-100 justify-content-between pe-3">
+                <div class="d-flex align-items-center">
+                  <div class="avatar avatar-sm me-3">
+                    <span class="avatar-initial rounded-circle bg-label-primary">
+                      <i class="ri-truck-fill"></i>
+                    </span>
+                  </div>
+                  <div class="d-flex flex-column text-start">
+                    <span class="fw-bold text-heading">{{ $delivery->delivery_no }}</span>
+                    <small class="text-muted">{{ $delivery->delivered_at ? \Carbon\Carbon::parse($delivery->delivered_at)->format('d M Y') : 'Menunggu' }}</small>
+                  </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <span class="badge bg-label-secondary">Qty: {{ number_format($delivery->qty_delivered) }}</span>
+                  @if($delivery->delivered_status == 1)
+                  <span class="badge bg-success rounded-pill">Tiba</span>
+                  @else
+                  <span class="badge bg-warning rounded-pill">Dalam Perjalanan</span>
+                  @endif
+                </div>
+              </div>
+            </button>
+          </h2>
+          <div id="collapse{{ $delivery->delivery_id }}" class="accordion-collapse collapse {{ $index === 0 ? 'show' : '' }}" aria-labelledby="heading{{ $delivery->delivery_id }}" data-bs-parent="#deliveryAccordion">
+            <div class="accordion-body border-top">
+
+              <div class="row mb-4">
+                <div class="col-12">
+                  <div class="alert alert-primary d-flex align-items-center" role="alert">
+                    <i class="ri-information-line me-2"></i>
+                    <div>
+                      <strong>Catatan Logistik:</strong> Est. Tiba: {{ $delivery->delivery_time_estimation ?? 'N/A' }}.
+                      <span class="text-xs ms-1 opacity-75">(Diinput oleh Pengguna #{{ $delivery->input_by }})</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0 text-muted text-uppercase fs-xs fw-bold">
+                  <i class="ri-bill-line me-1"></i> Invoice Terkait
+                </h6>
+                <a href="{{ route('invoice.create', ['delivery_id' => $delivery->delivery_id]) }}" class="btn btn-xs btn-outline-primary">
+                  <i class="ri-add-line"></i> Buat Invoice
+                </a>
+              </div>
+
+              @php
+              $invoices = \App\Models\Invoice::where('delivery_id', $delivery->delivery_id)->get();
+              @endphp
+
+              @if($invoices->isEmpty())
+              <div class="text-center p-3 bg-label-secondary rounded border border-dashed">
+                <small class="text-muted">Belum ada invoice yang dibuat untuk pengiriman ini.</small>
+              </div>
+              @else
+              <div class="list-group">
+                @foreach($invoices as $inv)
+                <a href="{{ route('invoice.show', $inv->invoice_id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                  <div class="d-flex align-items-center">
+                    <i class="ri-file-text-line fs-3 me-3 text-secondary"></i>
+                    <div>
+                      <h6 class="mb-0">{{ $inv->nomor_invoice }}</h6>
+                      <small class="text-muted">Jatuh Tempo: {{ $inv->due_date ? \Carbon\Carbon::parse($inv->due_date)->format('d M Y') : 'N/A' }}</small>
+                    </div>
+                  </div>
+                  <div class="text-end">
+                    @if($inv->status_invoice == 1)
+                    <span class="badge bg-success rounded-pill mb-1">Lunas</span>
+                    @elseif($inv->status_invoice == 2)
+                    <span class="badge bg-dark rounded-pill mb-1">Batal</span>
+                    @else
+                    <span class="badge bg-danger rounded-pill mb-1">Belum Lunas</span>
+                    @endif
+                    <div class="small text-muted">{{ number_format($inv->total_amount ?? 0, 2) }}</div>
+                  </div>
+                </a>
+                @endforeach
+              </div>
+              @endif
+            </div>
+          </div>
+        </div>
+        @endforeach
+      </div>
+      @endif
+    </div>
+
+    <div class="col-xl-4 col-lg-5 col-md-12">
+
+      <div class="card mb-4">
+        <div class="card-header border-bottom">
+          <h5 class="card-title mb-0">Detail Pelanggan</h5>
+        </div>
+        <div class="card-body pt-4">
+          <div class="d-flex justify-content-start align-items-center mb-4">
+            <div class="avatar avatar-lg me-3">
+              <span class="avatar-initial rounded-circle bg-label-info fs-3">
+                {{ substr($po->customer->name ?? 'C', 0, 1) }}
+              </span>
+            </div>
+            <div class="d-flex flex-column">
+              <a href="javascript:void(0)" class="text-heading text-nowrap">
+                <h6 class="mb-0">{{ $po->customer->name ?? 'Pelanggan Tidak Diketahui' }}</h6>
+              </a>
+              <small class="text-muted">ID: {{ $po->customer_id }}</small>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
+            <span class="fw-medium">Narahubung:</span>
+            <span class="text-muted">{{ $po->customer->contact_person ?? '-' }}</span>
+          </div>
+          <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
+            <span class="fw-medium">Email:</span>
+            <span class="text-muted">{{ $po->customer->email ?? '-' }}</span>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span class="fw-medium">Telepon:</span>
+            <span class="text-muted">{{ $po->customer->phone ?? '-' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Aksi Cepat</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <a href="{{ route('delivery.create') }}" class="btn btn-primary">
+              <i class="ri-truck-line me-2"></i> Buat Pengiriman
+            </a>
+            <button class="btn btn-label-secondary">
+              <i class="ri-download-line me-2"></i> Ekspor PDF
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Info Sistem</h5>
+        </div>
+        <div class="card-body">
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+              <div class="d-flex align-items-center">
+                <i class="ri-calendar-check-line me-2 text-primary"></i>
+                <span>Tanggal Dibuat</span>
+              </div>
+              <span class="fw-medium">{{ \Carbon\Carbon::parse($po->tgl_po)->format('d M Y') }}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+              <div class="d-flex align-items-center">
+                <i class="ri-user-add-line me-2 text-info"></i>
+                <span>Dibuat Oleh</span>
+              </div>
+              <span class="fw-medium">Pengguna #{{ $po->input_by }}</span>
+            </li>
+            @if($po->edit_by)
+            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+              <div class="d-flex align-items-center">
+                <i class="ri-edit-box-line me-2 text-warning"></i>
+                <span>Terakhir Diperbarui</span>
+              </div>
+              <div class="text-end">
+                <div class="fw-medium">{{ \Carbon\Carbon::parse($po->edit_date)->format('d M Y') }}</div>
+                <small class="text-muted">oleh Pengguna #{{ $po->edit_by }}</small>
+              </div>
+            </li>
+            @endif
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+@endsection
+
+i want this page to be designed as perfectly as possible and fully responsive to all devices (PCs, Laptops, Androids, iOS)
+do not add any CSS, JS
+adding HTML element is allowed
+only use bootstrap 5 classes to redesign the page
+
+user columns:
+`user_id` bigint NOT NULL AUTO_INCREMENT,
+`role_id` bigint NOT NULL,
+`user_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+`email` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+`password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+`remember_token` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+`last_login` datetime DEFAULT NULL,
+`is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1: Active, 0: Suspended',
+`input_by` bigint DEFAULT NULL,
+`input_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+`edit_by` bigint DEFAULT NULL,
+`edit_date` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+`profile_picture` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+PRIMARY KEY (`user_id`),
+UNIQUE KEY `uk_user_name` (`user_name`),
+UNIQUE KEY `uk_user_email` (`email`),
+KEY `idx_user_role` (`role_id`),
+CONSTRAINT `fk_user_role` FOREIGN KEY (`role_id`) REFERENCES `tbl_role` (`role_id`) ON DELETE RESTRICT
+
+activity log columns:
+`id` bigint unsigned NOT NULL AUTO_INCREMENT,
+`user_id` bigint DEFAULT NULL,
+`action` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+`model` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+`model_id` bigint unsigned DEFAULT NULL,
+`description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+`old_data` json DEFAULT NULL,
+`new_data` json DEFAULT NULL,
+`ip_address` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+`user_agent` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+`url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+`method` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+`created_at` timestamp NULL DEFAULT NULL,
+`updated_at` timestamp NULL DEFAULT NULL,
+PRIMARY KEY (`id`),
+KEY `user_id` (`user_id`),
+CONSTRAINT `fk_activity_user` FOREIGN KEY (`user_id`) REFERENCES `tbl_user` (`user_id`)
+
+@php
+$defaultAvatar = public_path('defaults/default-avatar.jpg');
+$picturePath = $user->profile_picture
+? public_path($user->profile_picture)
+: $defaultAvatar;
+
+$profilePic = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($picturePath));
+@endphp
+@extends('layouts/contentNavbarLayout')
+
+@section('title', 'Users')
+
+@section('content')
+
+<!-- Content -->
+<div id="main-container-index" class="container-fluid px-3 px-md-4 py-4">
+
+    <div class="row" bis_skin_checked="1">
+        <!-- User Sidebar -->
+        <div class="col-xl-4 col-lg-5 col-md-5 order-1 order-md-0" bis_skin_checked="1">
+            <!-- User Card -->
+            <div class="card mb-6" bis_skin_checked="1">
+                <div class="card-body pt-12" bis_skin_checked="1">
+                    <div class="user-avatar-section" bis_skin_checked="1">
+                        <div class=" d-flex align-items-center flex-column" bis_skin_checked="1">
+                            <img class="img-fluid rounded mb-4"
+                                src="{{ $profilePic }}"
+                                height="120" width="120" alt="User avatar">
+                            <div class="user-info text-center" bis_skin_checked="1">
+                                <h5>{{$user->user_name}}</h5>
+                                <span class="badge bg-label-danger rounded-pill">{{ $user->role->role_name }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <h5 class="pb-4 mb-4">Details</h5>
+                    <div class="info-container" bis_skin_checked="1">
+                        <ul class="list-unstyled mb-6">
+                            <li class="mb-2">
+                                <span class="h6">Username:</span>
+                                <span>{{$user->user_name}}</span>
+                            </li>
+                            <li class="mb-2">
+                                <span class="h6">Email:</span>
+                                <span>{{$user->email}}</span>
+                            </li>
+                            <li class="mb-2">
+                                <span class="h6">Status:</span>
+                                @if ($user->is_active == 1)
+                                <span class="badge bg-label-success rounded-pill">Aktif</span>
+                                @elseif($user->is_active == 0)
+                                <span class="badge bg-label-danger rounded-pill">Nonaktif</span>
+                                @endif
+                            </li>
+                            <li class="mb-2">
+                                <span class="h6">Role:</span>
+                                <span>{{ $user->role->role_name }}</span>
+                            </li>
+                        </ul>
+                        @if (Auth::user()->role_id != 2)
+                        <div class="d-flex justify-content-center" bis_skin_checked="1">
+                            @if ($user->is_active == 0)
+                            <button
+                                class="btn btn-outline-success activate-user waves-effect"
+                                id="activate-user"
+                                data-id="{{ $user->user_id }}"
+                                data-url="{{ route('users.activate', $user->user_id) }}"
+                                data-token="{{ csrf_token() }}">
+                                Aktifkan Akun
+                            </button>
+                            @endif
+                            @if ($user->is_active == 1)
+                            <button
+                                class="btn btn-outline-danger suspend-user waves-effect"
+                                id="suspend-user"
+                                data-id="{{ $user->user_id }}"
+                                data-url="{{ route('users.deactivate', $user->user_id) }}"
+                                data-token="{{ csrf_token() }}">
+                                Nonaktifkan Akun
+                            </button>
+                            @endif
+                        </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            <!-- /User Card -->
+        </div>
+        <!--/ User Sidebar -->
+
+        <!-- User Content -->
+        <div class="col-xl-8 col-lg-7 col-md-7 order-0 order-md-1" bis_skin_checked="1">
+            <!-- User Tabs -->
+            <div class="nav-align-top" bis_skin_checked="1">
+                <ul class="nav nav-pills flex-column flex-md-row flex-wrap mb-6 row-gap-2">
+                    <li class="nav-item">
+                        <a class="nav-link active waves-effect waves-light" href="javascript:void(0);"><i class="icon-base ri ri-group-line icon-sm me-1_5"></i>Account</a>
+                    </li>
+                </ul>
+            </div>
+            <!--/ User Tabs -->
+            <!-- Activity Timeline -->
+            <div class="card mb-6" bis_skin_checked="1">
+                <h5 class="card-header">Aktifitas Pengguna</h5>
+                <div class="card-body pt-0" bis_skin_checked="1">
+                    <ul class="timeline card-timeline mb-0 list-group">
+                        @foreach ($user->activities()->latest()->take(10)->get() as $activity)
+                        <li class="list-group-item active">
+                            <div class="timeline-event">
+                                <div class="timeline-header mb-2">
+                                    @if ($activity->action == "create" && $activity->model == "App\Models\Investasi")
+                                    @php
+                                    $data = json_decode($activity->new_data, true);
+                                    $skip = ['tgl_investasi', 'id_investasi'];
+                                    $labels = [
+                                    'modal_setor_awal' => 'Modal Setor Awal',
+                                    'modal_po_baru' => 'Modal PO Baru',
+                                    'margin' => 'Margin',
+                                    'pencairan_modal' => 'Pencairan Modal',
+                                    'margin_cair' => 'Margin Cair',
+                                    'pengembalian_dana' => 'Pengembalian Dana',
+                                    'dana_tersedia' => 'Dana Tersedia',
+                                    ];
+                                    @endphp
+
+                                    <h6 class="mb-1">Investasi ditambahkan dengan rincian: </h6>
+                                    <table class="table table-sm table-bordered table-dark mb-0">
+                                        <tbody>
+                                            @foreach ($data as $key => $value)
+                                            @continue(in_array($key, $skip))
+                                            <tr>
+                                                <td style="font-size:11px; color:#fff; white-space:nowrap; width:1%; padding: 3px 8px;">
+                                                    {{ $labels[$key] ?? $key }}
+                                                </td>
+                                                <td style="font-size:11px; font-weight:600; white-space:nowrap; padding: 3px 8px;">
+                                                    <span class="{{ $value < 0 ? 'text-danger' : 'text-success' }}">
+                                                        Rp {{ number_format($value, 0, ',', '.') }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <small class="text-muted">{{ $activity->created_at->format('d M Y H:i') }}</small>
+                                        <small class="text-body-secondary">{{ $activity->created_at->diffForHumans() }}</small>
+                                    </div>
+                                    @elseif ($activity->action == "create" && $activity->model == "App\Models\Po")
+                                    @php
+                                    $data = json_decode($activity->new_data, true);
+                                    $skip = ['po_id', 'customer_id', 'tgl_po', 'status', 'input_by', 'input_date', 'edit_by', 'edit_date'];
+                                    $labels = [
+                                    'no_po' => 'Nomor PO',
+                                    'nama_barang' => 'Nama Barang',
+                                    'qty' => 'Jumlah',
+                                    'harga' => 'Harga Per Unit',
+                                    'total' => 'Total Harga',
+                                    'modal_awal' => 'Modal',
+                                    'margin' => 'Margin',
+                                    'margin_unit' => 'Margin Per Unit',
+                                    'tambahan_margin' => 'Tambahan Margin',
+                                    ];
+                                    @endphp
+
+                                    <h6 class="mb-1">PO ditambahkan dengan rincian: </h6>
+                                    <table class="table table-sm table-bordered table-dark mb-0" style="table-layout:auto; width:auto;">
+                                        <tbody>
+                                            @foreach ($data as $key => $value)
+                                            @continue(in_array($key, $skip))
+                                            <tr>
+                                                <td style="font-size:11px; color:#fff; white-space:nowrap; width:1%; padding:3px 8px;">
+                                                    {{ $labels[$key] ?? $key }}
+                                                </td>
+                                                <td style="font-size:11px; font-weight:600; white-space:nowrap; width:1%; padding:3px 8px;">
+                                                    @if (in_array($key, $currencyFields))
+                                                    <span class="{{ $value < 0 ? 'text-danger' : 'text-success' }}">
+                                                        Rp {{ number_format($value, 0, ',', '.') }}
+                                                    </span>
+                                                    @else
+                                                    <span>{{ $value ?? '-' }}</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <small class="text-muted">{{ $activity->created_at->format('d M Y H:i') }}</small>
+                                        <small class="text-body-secondary">{{ $activity->created_at->diffForHumans() }}</small>
+                                    </div>
+                                    @else
+                                    <h6 class="mb-1">{{ $activity->description }}</h6>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">{{ $activity->created_at->format('d M Y H:i') }}</small>
+                                        <small class="text-body-secondary">{{ $activity->created_at->diffForHumans() }}</small>
+                                    </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+            <!-- /Activity Timeline -->
+        </div>
+        <!--/ User Content -->
+    </div>
+
+</div>
+<!-- / Content -->
+@endsection
+
+`user_id` bigint NOT NULL AUTO_INCREMENT,
+`role_id` bigint NOT NULL,
+`user_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+`email` varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+`password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+`remember_token` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+`last_login` datetime DEFAULT NULL,
+`is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1: Active, 0: Suspended',
+`input_by` bigint DEFAULT NULL,
+`input_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+`edit_by` bigint DEFAULT NULL,
+`edit_date` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+`profile_picture` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+PRIMARY KEY (`user_id`),
+UNIQUE KEY `uk_user_name` (`user_name`),
+UNIQUE KEY `uk_user_email` (`email`),
+KEY `idx_user_role` (`role_id`),
+CONSTRAINT `fk_user_role` FOREIGN KEY (`role_id`) REFERENCES `tbl_role` (`role_id`) ON DELETE RESTRICT

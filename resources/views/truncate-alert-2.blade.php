@@ -3,7 +3,7 @@
         Peringatan: Apakah anda yakin menghapus seluruh investasi?
     </swal-title>
     <swal-html>
-        <form action="{{ route('investasi.truncate') }}" id="truncate-investasi-form">
+        <form action="{{ route('investasi.truncate') }}" id="truncate-investasi-form" novalidate autocomplete="off">
             <div class="mb-4">
                 <label for="swal-reason" class="form-label fw-semibold">
                     Alasan <span class="text-danger">*</span>
